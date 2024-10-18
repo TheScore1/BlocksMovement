@@ -2,12 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using static Unity.Collections.AllocatorManager;
 
 [System.Serializable]
 public class Block
 {
     public GameObject Prefab;
     public Vector2Int Position;
+    public Vector2Int FinishPosition;
+    [HideInInspector] public bool IsControllable;
 }
 
 public class BlockController : MonoBehaviour
@@ -30,7 +33,13 @@ public class BlockController : MonoBehaviour
 
     void Start()
     {
+        for (int i = 0; i <= blocks.Length - 1; i++)
+        {
+            blocks[i].IsControllable = true;
+        }
+
         maxIndex = blocks.Length - 1;
+        minIndex = 0;
 
         grid = new int[levelSize.x, levelSize.y];
 
@@ -46,26 +55,40 @@ public class BlockController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.UpArrow))
+        CheckBlocksFinish();
+
+        if (blocks[selectedBlockIndex].IsControllable == true)
         {
-            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.up);
-        }
-        else if (Input.GetKeyDown(KeyCode.DownArrow))
-        {
-            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.down);
-        }
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.left);
-        }
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.right);
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.up);
+            }
+            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.down);
+            }
+            else if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.left);
+            }
+            else if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.right);
+            }
         }
         else if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
             selectedBlockIndex++;
         else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
             selectedBlockIndex--;
+    }
+
+    void CheckBlocksFinish()
+    {
+        for (int i = 0; i < createdBlocks.Length; i++)
+        {
+            if (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition && blocks[i].IsControllable == true)
+                blocks[i].IsControllable = false;
+        }
     }
 
     void MoveBlock(GameObject block, Vector2Int direction)
