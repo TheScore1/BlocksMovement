@@ -1,110 +1,108 @@
-using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 [System.Serializable]
-public class BlockSettings
+public class Block
 {
-    [HideInInspector] public bool isSelected;
-    [HideInInspector] public bool isControllable;
-
-    public GameObject prefab;
-    public Sprite sprite;
-    public Vector2Int position;
-    public Vector2Int finishPosition;
+    public GameObject Prefab;
+    public Vector2Int Position;
 }
 
 public class BlockController : MonoBehaviour
 {
     [Header("General settings")]
-    [SerializeField] private Vector2Int LevelSize;
-    [SerializeField] private List<BlockSettings> blockSettingsList = new List<BlockSettings>();
-    [SerializeField] Transform blocksParent;
-    [SerializeField] private float movementSpeed = 5f;
+    [SerializeField] public Vector2Int levelSize;
+    [SerializeField] public Block[] blocks;
 
-    [Header("Controls")]
-    [SerializeField] private KeyCode moveLeftKey = KeyCode.A;
-    [SerializeField] private KeyCode moveRightKey = KeyCode.D;
-    [SerializeField] private KeyCode moveUpKey = KeyCode.W;
-    [SerializeField] private KeyCode moveDownKey = KeyCode.S;
+    private int[,] grid; // 0 - empty
+                         // 1 - wall
+                         // 2 - block
 
-    private List<GameObject> spawnedBlocks = new List<GameObject>();
-    private List<GameObject> panelObjects = new List<GameObject>();
+    public float moveSpeed = 1.0f;
+
+    [HideInInspector] public GameObject[] createdBlocks;
+
+    public int selectedBlockIndex = 0;
+    private int maxIndex;
+    private int minIndex;
 
     void Start()
     {
-        blockSettingsList[0].isSelected = true;
-        blockSettingsList[0].isControllable = true;
-        GenerateBlocks();
-    }
+        maxIndex = blocks.Length - 1;
 
-    private void GenerateBlocks()
-    {
-        foreach (var block in spawnedBlocks)
-            Destroy(block);
-        spawnedBlocks.Clear();
+        grid = new int[levelSize.x, levelSize.y];
 
-        // level
-        for (int i = 0; i < blockSettingsList.Count; i++)
+        createdBlocks = new GameObject[blocks.Length];
+
+        for (int i = 0; i < blocks.Length; i++)
         {
-            if (i < blockSettingsList.Count && blockSettingsList[i].prefab != null)
-            {
-                GameObject newBlock = Instantiate(blockSettingsList[i].prefab, blocksParent);
-
-                if (blockSettingsList[i].position != null &&
-                    blockSettingsList[i].position.x < LevelSize.x && blockSettingsList[i].position.x >= 0 &&
-                    blockSettingsList[i].position.y < LevelSize.y && blockSettingsList[i].position.y >= 0)
-                {
-                    Vector2 position = new Vector2(blockSettingsList[i].position.x, blockSettingsList[i].position.y);
-                    newBlock.transform.position = position;
-                }
-                else
-                    Debug.Log($"Something wrong with position of {i} element");
-
-                BlockParams blockParams = newBlock.GetComponent<BlockParams>();
-
-                blockParams.SetMovementSpeed(movementSpeed);
-                blockParams.SetColliderSize(new Vector2(1, 1));
-                blockParams.SetPosition(blockSettingsList[i].position);
-                //blockParams.SetSpriteSkin(null);
-
-                spawnedBlocks.Add(newBlock);
-            }
-        }
-
-        // blocks panel
-        for (int i = 0; i < spawnedBlocks.Count; i++)
-        {
-            GameObject panelObject = spawnedBlocks[i];
-            BlockParams panelObjectParams = panelObject.GetComponent<BlockParams>();
-
-            panelObjectParams.transform.position = new Vector2(i, -2);
-            panelObjects.Add(panelObject);
+            grid[blocks[i].Position.x, blocks[i].Position.y] = 2;
+            var vector2intToVector2 = new Vector2(blocks[i].Position.x, blocks[i].Position.y);
+            createdBlocks[i] = Instantiate(blocks[i].Prefab, vector2intToVector2, Quaternion.identity);
         }
     }
 
     void Update()
     {
-        HandleMovement();
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.up);
+        }
+        else if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.down);
+        }
+        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.left);
+        }
+        else if (Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.right);
+        }
+        else if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
+            selectedBlockIndex++;
+        else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
+            selectedBlockIndex--;
     }
 
-    private void HandleMovement()
+    void MoveBlock(GameObject block, Vector2Int direction)
     {
-        Vector2 direction = Vector2.zero;
+        Vector2Int blockPosition = GetBlockPosition(block);
 
-        if (Input.GetKey(moveLeftKey)) direction = Vector2.left;
-        if (Input.GetKey(moveRightKey)) direction = Vector2.right;
-        if (Input.GetKey(moveUpKey)) direction = Vector2.up;
-        if (Input.GetKey(moveDownKey)) direction = Vector2.down;
-
-        foreach (GameObject block in spawnedBlocks)
+        while (CanMove(blockPosition, direction))
         {
-            if (block != null)
-            {
-                block.transform.Translate(direction * movementSpeed * Time.deltaTime);
-            }
+            blockPosition += direction;
         }
+
+        UpdateGrid(GetBlockPosition(block), blockPosition);
+        block.transform.position = new Vector3(blockPosition.x, blockPosition.y, block.transform.position.z);
+    }
+
+    bool CanMove(Vector2Int currentPosition, Vector2Int direction)
+    {
+        Vector2Int newPosition = currentPosition + direction;
+
+        if (newPosition.x >= 0 && newPosition.x < grid.GetLength(0) &&
+            newPosition.y >= 0 && newPosition.y < grid.GetLength(1) &&
+            grid[newPosition.x, newPosition.y] == 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    Vector2Int GetBlockPosition(GameObject block)
+    {
+        return new Vector2Int(Mathf.RoundToInt(block.transform.position.x), Mathf.RoundToInt(block.transform.position.y));
+    }
+
+    void UpdateGrid(Vector2Int oldPosition, Vector2Int newPosition)
+    {
+        grid[oldPosition.x, oldPosition.y] = 0;
+        grid[newPosition.x, newPosition.y] = 2;
     }
 }
