@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 using static Unity.Collections.AllocatorManager;
 
 [System.Serializable]
@@ -18,14 +19,23 @@ public class BlockController : MonoBehaviour
     [Header("General settings")]
     [SerializeField] public Vector2Int levelSize;
     [SerializeField] public Block[] blocks;
+    [SerializeField] public Vector2Int[] walls;
 
     private int[,] grid; // 0 - empty
                          // 1 - wall
                          // 2 - block
 
+    [SerializeField] public Sprite finishIconSprite;
+    [SerializeField] public Sprite wallSprite;
+
+    public float moveDuration = 0.2f;
     public float moveSpeed = 1.0f;
 
+    [HideInInspector] private bool isMoving = false;
+
     [HideInInspector] public GameObject[] createdBlocks;
+    [HideInInspector] public GameObject[] finishBlocks;
+    [HideInInspector] public GameObject[] wallsBlocks;
 
     public int selectedBlockIndex = 0;
     private int maxIndex;
@@ -43,6 +53,20 @@ public class BlockController : MonoBehaviour
 
         grid = new int[levelSize.x, levelSize.y];
 
+        if (walls != null)
+        {
+            wallsBlocks = new GameObject[walls.Length];
+            for (int i = 0; i < walls.Length; i++)
+            {
+                grid[walls[i].x, walls[i].y] = 1;
+                var vector2intToVector2 = new Vector2(walls[i].x, walls[i].y);
+                wallsBlocks[i] = new GameObject();
+                var spriteRenderer = wallsBlocks[i].AddComponent<SpriteRenderer>();
+                spriteRenderer.sprite = wallSprite;
+                wallsBlocks[i].transform.position = vector2intToVector2;
+            }
+        }
+
         createdBlocks = new GameObject[blocks.Length];
 
         for (int i = 0; i < blocks.Length; i++)
@@ -51,35 +75,81 @@ public class BlockController : MonoBehaviour
             var vector2intToVector2 = new Vector2(blocks[i].Position.x, blocks[i].Position.y);
             createdBlocks[i] = Instantiate(blocks[i].Prefab, vector2intToVector2, Quaternion.identity);
         }
+
+        finishBlocks = new GameObject[blocks.Length];
+
+        for (int i = 0; i < blocks.Length; i++)
+        {
+            grid[blocks[i].FinishPosition.x, blocks[i].FinishPosition.y] = 0;
+            var vector2intToVector2 = new Vector2(blocks[i].FinishPosition.x, blocks[i].FinishPosition.y);
+            finishBlocks[i] = Instantiate(blocks[i].Prefab, vector2intToVector2, Quaternion.identity);
+            finishBlocks[i].GetComponent<SpriteRenderer>().sprite = finishIconSprite;
+        }
     }
 
     void Update()
     {
-        CheckBlocksFinish();
-
-        if (blocks[selectedBlockIndex].IsControllable == true)
+        if (!isMoving && blocks[selectedBlockIndex].IsControllable)
         {
             if (Input.GetKeyDown(KeyCode.UpArrow))
             {
-                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.up);
+                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.up));
             }
             else if (Input.GetKeyDown(KeyCode.DownArrow))
             {
-                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.down);
+                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.down));
             }
             else if (Input.GetKeyDown(KeyCode.LeftArrow))
             {
-                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.left);
+                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.left));
             }
             else if (Input.GetKeyDown(KeyCode.RightArrow))
             {
-                MoveBlock(createdBlocks[selectedBlockIndex], Vector2Int.right);
+                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.right));
             }
         }
-        else if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
-            selectedBlockIndex++;
-        else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
-            selectedBlockIndex--;
+        if (!isMoving)
+        {
+            if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
+                selectedBlockIndex++;
+            else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
+                selectedBlockIndex--;
+            CheckBlocksFinish();
+        }
+    }
+
+    IEnumerator MoveBlockSmoothly(GameObject block, Vector2Int direction)
+    {
+        Vector2Int startBlockPosition = GetBlockPosition(block);
+        Vector2Int targetBlockPosition = startBlockPosition;
+
+        while (CanMove(targetBlockPosition, direction))
+        {
+            targetBlockPosition += direction;
+        }
+
+        if (targetBlockPosition == startBlockPosition)
+        {
+            yield break;
+        }
+
+        UpdateGrid(startBlockPosition, targetBlockPosition);
+
+        isMoving = true;
+
+        Vector3 startPosition = block.transform.position;
+        Vector3 targetPosition = new Vector3(targetBlockPosition.x, targetBlockPosition.y, block.transform.position.z);
+
+        float elapsedTime = 0f;
+        while (elapsedTime < moveDuration)
+        {
+            block.transform.position = Vector3.Lerp(startPosition, targetPosition, elapsedTime / moveDuration);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        block.transform.position = targetPosition;
+
+        isMoving = false;
     }
 
     void CheckBlocksFinish()
@@ -91,7 +161,7 @@ public class BlockController : MonoBehaviour
         }
     }
 
-    void MoveBlock(GameObject block, Vector2Int direction)
+    void MoveBlockFast(GameObject block, Vector2Int direction)
     {
         Vector2Int blockPosition = GetBlockPosition(block);
 

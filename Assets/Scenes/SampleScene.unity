@@ -240,18 +240,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d081a9fb657bb0428f1ad76a7b47f60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  levelSize: {x: 5, y: 5}
   blocks:
   - Prefab: {fileID: 4366649175985151853, guid: 8be34953bf1241b4699b0467992cda4b, type: 3}
     Position: {x: 0, y: 0}
+    FinishPosition: {x: 4, y: 4}
+    IsControllable: 0
   - Prefab: {fileID: 4366649175985151853, guid: c63f504a2654f3a44a7285b3ec502f03, type: 3}
     Position: {x: 1, y: 1}
+    FinishPosition: {x: 4, y: 3}
+    IsControllable: 0
   - Prefab: {fileID: 4366649175985151853, guid: 914ab798b130a9b46b5c3efb09abcf81, type: 3}
     Position: {x: 2, y: 1}
+    FinishPosition: {x: 4, y: 2}
+    IsControllable: 0
+  walls:
+  - {x: 2, y: 2}
+  finishIconSprite: {fileID: 670212540798595191, guid: e2e03ab07461e1d42b3251f36ed9e10a, type: 3}
+  wallSprite: {fileID: -5356574185940491189, guid: bf53f6fd310fbac498e682766fea8522, type: 3}
+  moveDuration: 0.2
   moveSpeed: 1
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 0
   createdBlocks: []
+  finishBlocks: []
+  wallsBlocks: []
+  selectedBlockIndex: 0
 --- !u!4 &1252337573
 Transform:
   m_ObjectHideFlags: 0
