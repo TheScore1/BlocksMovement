@@ -77,8 +77,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
-  m_Color: {r: 0.0473923, g: 0.6698113, b: 0.10309922, a: 1}
+  m_Sprite: {fileID: -5356574185940491189, guid: bf53f6fd310fbac498e682766fea8522, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -100,7 +100,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd45e9208aac7244babee84edf7be005, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  position: {x: 0, y: 0}
-  movementSpeed: 0
-  colliderSize: {x: 0, y: 0}
-  spriteRenderer: {fileID: 0}
+  blockType: 0
+  Prefab: {fileID: 0}
+  Position: {x: 0, y: 0}
+  FinishPosition: {x: 0, y: 0}
+  IsControllable: 0

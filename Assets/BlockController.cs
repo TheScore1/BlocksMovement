@@ -1,120 +1,138 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEngine;
 using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 using static Unity.Collections.AllocatorManager;
 
-[System.Serializable]
-public class Block
+
+[CustomPropertyDrawer(typeof(DisabledIfAttribute))]
+public class DisabledIfDrawer : PropertyDrawer
 {
-    public GameObject Prefab;
-    public Vector2Int Position;
-    public Vector2Int FinishPosition;
-    [HideInInspector] public bool IsControllable;
+    public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+    {
+        DisabledIfAttribute disabledIf = (DisabledIfAttribute)attribute;
+        SerializedProperty conditionProperty = property.serializedObject.FindProperty(disabledIf.ConditionField);
+
+        bool isDisabled = conditionProperty != null && !conditionProperty.boolValue;
+
+        EditorGUI.BeginDisabledGroup(isDisabled);
+        EditorGUI.PropertyField(position, property, label);
+        EditorGUI.EndDisabledGroup();
+    }
 }
+
+public class DisabledIfAttribute : PropertyAttribute
+{
+    public string ConditionField;
+
+    public DisabledIfAttribute(string conditionField)
+    {
+        ConditionField = conditionField;
+    }
+}
+
 
 public class BlockController : MonoBehaviour
 {
+    public LevelEditor levelEditor;
+
     [Header("General settings")]
-    [SerializeField] public Vector2Int levelSize;
-    [SerializeField] public Block[] blocks;
-    [SerializeField] public Vector2Int[] walls;
+    public bool sameSpeedForAllBlocks;
+    [DisabledIf("sameSpeedForAllBlocks")] public float moveSpeed;
 
-    private int[,] grid; // 0 - empty
-                         // 1 - wall
-                         // 2 - block
+    [Space(10)]
 
-    [SerializeField] public Sprite finishIconSprite;
-    [SerializeField] public Sprite wallSprite;
-
-    public float moveDuration = 0.2f;
-    public float moveSpeed = 1.0f;
+    public Sprite SelectedSprite;
+    [HideInInspector] GameObject selectedObject;
 
     [HideInInspector] private bool isMoving = false;
 
     [HideInInspector] public GameObject[] createdBlocks;
-    [HideInInspector] public GameObject[] finishBlocks;
-    [HideInInspector] public GameObject[] wallsBlocks;
+    [HideInInspector] public GameObject[] createdFinishBlocks;
+    [HideInInspector] public GameObject[] createdWalls;
 
-    public int selectedBlockIndex = 0;
+    [HideInInspector] public int selectedBlockIndex = 0;
     private int maxIndex;
     private int minIndex;
 
+    [Header("Controls")]
+    public KeyCode moveUpKey = KeyCode.UpArrow;
+    public KeyCode moveDownKey = KeyCode.DownArrow;
+    public KeyCode moveLeftKey = KeyCode.LeftArrow;
+    public KeyCode moveRightKey = KeyCode.RightArrow;
+
+    [HideInInspector] public BlockParams[] blocks;
+    [HideInInspector] public int[,] grid;
+
     void Start()
     {
+        if (levelEditor == null)
+            levelEditor = FindFirstObjectByType<LevelEditor>();
+
+        blocks = levelEditor.initialBlocks;
+        grid = levelEditor.grid;
+        createdWalls = levelEditor.createdWalls;
+        createdBlocks = levelEditor.createdBlocks;
+        createdFinishBlocks = levelEditor.createdFinishBlocks;
+
         for (int i = 0; i <= blocks.Length - 1; i++)
         {
             blocks[i].IsControllable = true;
         }
 
-        maxIndex = blocks.Length - 1;
+        maxIndex = blocks.Length > 0 ? blocks.Length - 1 : 0;
         minIndex = 0;
 
-        grid = new int[levelSize.x, levelSize.y];
-
-        if (walls != null)
+        if (blocks.Length != 0)
         {
-            wallsBlocks = new GameObject[walls.Length];
-            for (int i = 0; i < walls.Length; i++)
-            {
-                grid[walls[i].x, walls[i].y] = 1;
-                var vector2intToVector2 = new Vector2(walls[i].x, walls[i].y);
-                wallsBlocks[i] = new GameObject();
-                var spriteRenderer = wallsBlocks[i].AddComponent<SpriteRenderer>();
-                spriteRenderer.sprite = wallSprite;
-                wallsBlocks[i].transform.position = vector2intToVector2;
-            }
-        }
-
-        createdBlocks = new GameObject[blocks.Length];
-
-        for (int i = 0; i < blocks.Length; i++)
-        {
-            grid[blocks[i].Position.x, blocks[i].Position.y] = 2;
-            var vector2intToVector2 = new Vector2(blocks[i].Position.x, blocks[i].Position.y);
-            createdBlocks[i] = Instantiate(blocks[i].Prefab, vector2intToVector2, Quaternion.identity);
-        }
-
-        finishBlocks = new GameObject[blocks.Length];
-
-        for (int i = 0; i < blocks.Length; i++)
-        {
-            grid[blocks[i].FinishPosition.x, blocks[i].FinishPosition.y] = 0;
-            var vector2intToVector2 = new Vector2(blocks[i].FinishPosition.x, blocks[i].FinishPosition.y);
-            finishBlocks[i] = Instantiate(blocks[i].Prefab, vector2intToVector2, Quaternion.identity);
-            finishBlocks[i].GetComponent<SpriteRenderer>().sprite = finishIconSprite;
+            selectedObject = new GameObject();
+            var spriteRender = selectedObject.AddComponent<SpriteRenderer>();
+            spriteRender.sortingOrder = 2;
+            spriteRender.sprite = SelectedSprite;
+            var vector2intToVector2 = new Vector2(createdBlocks[selectedBlockIndex].transform.position.x, createdBlocks[selectedBlockIndex].transform.position.y);
+            selectedObject.transform.position = vector2intToVector2;
         }
     }
 
     void Update()
     {
-        if (!isMoving && blocks[selectedBlockIndex].IsControllable)
+        if (blocks.Length != 0)
         {
-            if (Input.GetKeyDown(KeyCode.UpArrow))
+            var vector2intToVector2 = new Vector2(
+                createdBlocks[selectedBlockIndex].transform.position.x,
+                createdBlocks[selectedBlockIndex].transform.position.y);
+            selectedObject.transform.position = vector2intToVector2;
+
+            if (!isMoving && blocks[selectedBlockIndex].IsControllable)
             {
-                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.up));
+                if (Input.GetKeyDown(moveUpKey))
+                {
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.up));
+                }
+                else if (Input.GetKeyDown(moveDownKey))
+                {
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.down));
+                }
+                else if (Input.GetKeyDown(moveLeftKey))
+                {
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.left));
+                }
+                else if (Input.GetKeyDown(moveRightKey))
+                {
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.right));
+                }
             }
-            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            if (!isMoving)
             {
-                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.down));
+                if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
+                    selectedBlockIndex++;
+                else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
+                    selectedBlockIndex--;
+                CheckBlocksFinish();
             }
-            else if (Input.GetKeyDown(KeyCode.LeftArrow))
-            {
-                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.left));
-            }
-            else if (Input.GetKeyDown(KeyCode.RightArrow))
-            {
-                StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.right));
-            }
-        }
-        if (!isMoving)
-        {
-            if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
-                selectedBlockIndex++;
-            else if (Input.GetAxis("Mouse ScrollWheel") < 0f && selectedBlockIndex - 1 >= minIndex)
-                selectedBlockIndex--;
-            CheckBlocksFinish();
         }
     }
 
@@ -140,13 +158,17 @@ public class BlockController : MonoBehaviour
         Vector3 startPosition = block.transform.position;
         Vector3 targetPosition = new Vector3(targetBlockPosition.x, targetBlockPosition.y, block.transform.position.z);
 
+        float distance = Vector3.Distance(startPosition, targetPosition);
+        float duration = sameSpeedForAllBlocks ? moveSpeed : distance / blocks[selectedBlockIndex].moveSpeed;
+
         float elapsedTime = 0f;
-        while (elapsedTime < moveDuration)
+        while (elapsedTime < duration)
         {
-            block.transform.position = Vector3.Lerp(startPosition, targetPosition, elapsedTime / moveDuration);
+            block.transform.position = Vector3.Lerp(startPosition, targetPosition, elapsedTime / duration);
             elapsedTime += Time.deltaTime;
             yield return null;
         }
+
         block.transform.position = targetPosition;
 
         isMoving = false;
@@ -179,10 +201,14 @@ public class BlockController : MonoBehaviour
         Vector2Int newPosition = currentPosition + direction;
 
         if (newPosition.x >= 0 && newPosition.x < grid.GetLength(0) &&
-            newPosition.y >= 0 && newPosition.y < grid.GetLength(1) &&
-            grid[newPosition.x, newPosition.y] == 0)
+            newPosition.y >= 0 && newPosition.y < grid.GetLength(1))
         {
-            return true;
+            if (grid[newPosition.x, newPosition.y] == 0)
+                return true;
+            if (grid[newPosition.x, newPosition.y] == 1 && blocks[selectedBlockIndex].CollideWithWalls == false)
+                return true;
+            if (grid[newPosition.x, newPosition.y] == 2 && blocks[selectedBlockIndex].CollideWithBlocks == false)
+                return true;
         }
 
         return false;
