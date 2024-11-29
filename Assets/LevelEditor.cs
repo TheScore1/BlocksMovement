@@ -157,7 +157,7 @@ public class LevelEditor : MonoBehaviour
         float centerX = totalWidth / 2f - tileSize.x / 2f;
         float centerY = totalHeight / 2f - tileSize.y / 2f;
 
-        camera.transform.position = new Vector3(centerX, centerY, -10);
+        camera.transform.position = new Vector3(centerX - paddingLeft, centerY - paddingBottom, -10);
 
         float verticalSize = totalHeight / 2f;
         float horizontalSize = totalWidth / 2f / screenAspect;
