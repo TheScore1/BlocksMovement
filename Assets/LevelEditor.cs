@@ -5,10 +5,6 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using static Unity.Collections.AllocatorManager;
-
-
-using UnityEngine;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 [CustomEditor(typeof(LevelEditor))]
@@ -16,26 +12,21 @@ public class LevelEditorEditor : Editor
 {
     public override void OnInspectorGUI()
     {
-        // Отображаем стандартный инспектор
         DrawDefaultInspector();
 
-        // Получаем ссылку на объект скрипта
         LevelEditor generator = (LevelEditor)target;
 
-        // Добавляем кнопку для генерации уровня
         if (GUILayout.Button("Generate Level"))
         {
-            generator.GenerateLevel(); // Вызываем метод генерации
+            generator.GenerateLevel();
         }
 
-        // Добавляем кнопку для очистки уровня
         if (GUILayout.Button("Clear Level"))
         {
-            generator.ClearLevel(); // Вызываем метод очистки
+            generator.ClearLevel();
         }
     }
 }
-
 
 
 [System.Serializable]

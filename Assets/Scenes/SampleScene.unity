@@ -246,10 +246,28 @@ MonoBehaviour:
   initialBlocks:
   - Prefab: {fileID: 4366649175985151853, guid: 3cb8be11a92e3ed44ab982f8ef8c4b77, type: 3}
     Position: {x: 0, y: 0}
-    FinishPosition: {x: 0, y: 4}
+    FinishPosition: {x: 4, y: 3}
     sprite: {fileID: -1548288261333306064, guid: c1a0fb2c9b96c954d86ed9315429ff6d, type: 3}
-    finishSprite: {fileID: 670212540798595191, guid: e2e03ab07461e1d42b3251f36ed9e10a, type: 3}
-    moveSpeed: 5
+    finishSprite: {fileID: 0}
+    moveSpeed: 10
+    CollideWithBlocks: 1
+    CollideWithWalls: 1
+    IsControllable: 0
+  - Prefab: {fileID: 4366649175985151853, guid: c63f504a2654f3a44a7285b3ec502f03, type: 3}
+    Position: {x: 2, y: 1}
+    FinishPosition: {x: 4, y: 1}
+    sprite: {fileID: -4207430566970557079, guid: 44537ba2827da2d42b90bd40273709fe, type: 3}
+    finishSprite: {fileID: 0}
+    moveSpeed: 10
+    CollideWithBlocks: 1
+    CollideWithWalls: 1
+    IsControllable: 0
+  - Prefab: {fileID: 4366649175985151853, guid: 914ab798b130a9b46b5c3efb09abcf81, type: 3}
+    Position: {x: 1, y: 2}
+    FinishPosition: {x: 1, y: 4}
+    sprite: {fileID: -8367898031386176340, guid: 4962dba810f5ac845a7097691b5d27a7, type: 3}
+    finishSprite: {fileID: 0}
+    moveSpeed: 10
     CollideWithBlocks: 1
     CollideWithWalls: 1
     IsControllable: 0
@@ -261,12 +279,16 @@ MonoBehaviour:
   wallSprite: {fileID: -5356574185940491189, guid: bf53f6fd310fbac498e682766fea8522, type: 3}
   createdBlocks:
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   createdWalls:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   createdFinishBlocks:
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 0}
   camera: {fileID: 0}
   paddingTop: 1
@@ -321,12 +343,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   levelEditor: {fileID: 1178641873}
-  sameSpeedForAllBlocks: 1
+  sameSpeedForAllBlocks: 0
   moveSpeed: 5
   SelectedSprite: {fileID: 7586469070100464371, guid: 993cf151945616d4b9563f1d3ccdd46f, type: 3}
   createdBlocks: []
   createdFinishBlocks: []
   createdWalls: []
+  finishedBlocks: 0
   selectedBlockIndex: 0
   moveUpKey: 273
   moveDownKey: 274

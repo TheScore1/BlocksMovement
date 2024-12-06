@@ -53,6 +53,7 @@ public class BlockController : MonoBehaviour
     [HideInInspector] public GameObject[] createdBlocks;
     [HideInInspector] public GameObject[] createdFinishBlocks;
     [HideInInspector] public GameObject[] createdWalls;
+    [HideInInspector] public int finishedBlocks;
 
     [HideInInspector] public int selectedBlockIndex = 0;
     private int maxIndex;
@@ -105,6 +106,12 @@ public class BlockController : MonoBehaviour
                 createdBlocks[selectedBlockIndex].transform.position.x,
                 createdBlocks[selectedBlockIndex].transform.position.y);
             selectedObject.transform.position = vector2intToVector2;
+
+            if (finishedBlocks == blocks.Length)
+            {
+                LevelFinished.IsLevelFinished = true;
+                Debug.Log("Level Finished");
+            }
 
             if (!isMoving && blocks[selectedBlockIndex].IsControllable)
             {
@@ -179,7 +186,10 @@ public class BlockController : MonoBehaviour
         for (int i = 0; i < createdBlocks.Length; i++)
         {
             if (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition && blocks[i].IsControllable == true)
+            {
                 blocks[i].IsControllable = false;
+                finishedBlocks++;
+            }
         }
     }
 
