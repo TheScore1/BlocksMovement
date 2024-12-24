@@ -243,6 +243,10 @@ MonoBehaviour:
   blockController: {fileID: 1252337572}
   levelSize: {x: 5, y: 5}
   tileSize: {x: 1, y: 1}
+  StarsForLevel: 1
+  MovesForLevel: 10
+  TwoStarsMoves: 7
+  ThreeStarsMoves: 5
   initialBlocks:
   - Prefab: {fileID: 4366649175985151853, guid: 3cb8be11a92e3ed44ab982f8ef8c4b77, type: 3}
     Position: {x: 0, y: 0}
@@ -250,6 +254,7 @@ MonoBehaviour:
     sprite: {fileID: -1548288261333306064, guid: c1a0fb2c9b96c954d86ed9315429ff6d, type: 3}
     finishSprite: {fileID: 0}
     moveSpeed: 10
+    UniversalBlock: 0
     CollideWithBlocks: 1
     CollideWithWalls: 1
     IsControllable: 0
@@ -259,6 +264,7 @@ MonoBehaviour:
     sprite: {fileID: -4207430566970557079, guid: 44537ba2827da2d42b90bd40273709fe, type: 3}
     finishSprite: {fileID: 0}
     moveSpeed: 10
+    UniversalBlock: 0
     CollideWithBlocks: 1
     CollideWithWalls: 1
     IsControllable: 0
@@ -268,6 +274,7 @@ MonoBehaviour:
     sprite: {fileID: -8367898031386176340, guid: 4962dba810f5ac845a7097691b5d27a7, type: 3}
     finishSprite: {fileID: 0}
     moveSpeed: 10
+    UniversalBlock: 0
     CollideWithBlocks: 1
     CollideWithWalls: 1
     IsControllable: 0
@@ -356,6 +363,7 @@ MonoBehaviour:
   moveLeftKey: 276
   moveRightKey: 275
   blocks: []
+  appliedMoves: 0
 --- !u!4 &1252337573
 Transform:
   m_ObjectHideFlags: 0

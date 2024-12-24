@@ -67,6 +67,7 @@ public class BlockController : MonoBehaviour
 
     [HideInInspector] public BlockParams[] blocks;
     [HideInInspector] public int[,] grid;
+    [HideInInspector] public int appliedMoves;
 
     void Start()
     {
@@ -107,11 +108,11 @@ public class BlockController : MonoBehaviour
                 createdBlocks[selectedBlockIndex].transform.position.y);
             selectedObject.transform.position = vector2intToVector2;
 
-            if (finishedBlocks == blocks.Length)
-            {
-                LevelFinished.IsLevelFinished = true;
-                Debug.Log("Level Finished");
-            }
+            //if (finishedBlocks == blocks.Length)
+            //{
+            //    LevelFinished.IsLevelFinished = true;
+            //    Debug.Log("Level Finished");
+            //}
 
             if (!isMoving && blocks[selectedBlockIndex].IsControllable)
             {
@@ -140,6 +141,28 @@ public class BlockController : MonoBehaviour
                     selectedBlockIndex--;
                 CheckBlocksFinish();
             }
+
+            if (isAllBlocksFinished())
+            {
+                LevelFinished.IsLevelFinished = true;
+                if (levelEditor.ThreeStarsMoves != 0 & appliedMoves <= levelEditor.ThreeStarsMoves)
+                    Debug.Log("Three Stars");
+                else if (levelEditor.TwoStarsMoves != 0 & appliedMoves <= levelEditor.TwoStarsMoves)
+                    Debug.Log("Two Stars");
+                else if (appliedMoves <= levelEditor.MovesForLevel)
+                    Debug.Log("One star (or stars disabled)");
+            }
+            // если закончились ходы
+            if (appliedMoves >= levelEditor.MovesForLevel)
+            {
+                if (isAllBlocksFinished())
+                    LevelFinished.IsLevelFinished = true;
+                else
+                    for (int i = 0; i < blocks.Length; i++)
+                    {
+                        blocks[i].IsControllable = false;
+                    }
+            }
         }
     }
 
@@ -151,12 +174,15 @@ public class BlockController : MonoBehaviour
         while (CanMove(targetBlockPosition, direction))
         {
             targetBlockPosition += direction;
+            
         }
 
         if (targetBlockPosition == startBlockPosition)
         {
             yield break;
         }
+
+        appliedMoves++;
 
         UpdateGrid(startBlockPosition, targetBlockPosition);
 
@@ -181,14 +207,42 @@ public class BlockController : MonoBehaviour
         isMoving = false;
     }
 
+    bool isAllBlocksFinished()
+    {
+        int q = blocks.Length;
+        for (int i = 0; i < blocks.Length; i++)
+        {
+            if (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition)
+                q--;
+        }
+        if (q == 0)
+            return true;
+        return false;
+    }
+
     void CheckBlocksFinish()
     {
         for (int i = 0; i < createdBlocks.Length; i++)
         {
-            if (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition && blocks[i].IsControllable == true)
+            if (blocks[i].IsControllable == true)
             {
-                blocks[i].IsControllable = false;
-                finishedBlocks++;
+                if (blocks[i].UniversalBlock)
+                {
+                    for(int a = 0; a < createdBlocks.Length; a++)
+                    {
+                        if (GetBlockPosition(createdBlocks[i]) == blocks[a].FinishPosition)
+                        {
+                            blocks[i].IsControllable = false;
+                            finishedBlocks++;
+                            break;
+                        }
+                    }
+                }
+                else if (blocks[i].UniversalBlock == false & GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition)
+                {
+                    blocks[i].IsControllable = false;
+                    finishedBlocks++;
+                }
             }
         }
     }

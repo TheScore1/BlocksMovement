@@ -39,6 +39,7 @@ public class BlockParams
     public Sprite finishSprite;
     public float moveSpeed = 5.0f;
 
+    public bool UniversalBlock = false;
     public bool CollideWithBlocks = true;
     public bool CollideWithWalls = true;
     [HideInInspector] public bool IsControllable;
@@ -51,6 +52,11 @@ public class LevelEditor : MonoBehaviour
     [Header("General settings")]
     public Vector2Int levelSize;
     [MinVector2Int(1,1)] public Vector2Int tileSize;
+    
+    public bool StarsForLevel;
+    public int MovesForLevel;
+    [DisabledIf("StarsForLevel")] public int TwoStarsMoves;
+    [DisabledIf("StarsForLevel")] public int ThreeStarsMoves;
 
     [Space(5)]
     public BlockParams[] initialBlocks;
