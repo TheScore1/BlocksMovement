@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
@@ -34,14 +35,15 @@ public class DisabledIfAttribute : PropertyAttribute
     }
 }
 
-
 public class BlockController : MonoBehaviour
 {
     public LevelEditor levelEditor;
+    public SceneController sceneController;
 
     [Header("General settings")]
     public bool sameSpeedForAllBlocks;
     [DisabledIf("sameSpeedForAllBlocks")] public float moveSpeed;
+    public bool DisableMovementForBlockOnFinish;
 
     [Space(10)]
 
@@ -58,6 +60,11 @@ public class BlockController : MonoBehaviour
     [HideInInspector] public int selectedBlockIndex = 0;
     private int maxIndex;
     private int minIndex;
+    [HideInInspector] public BlockParams[] blocks;
+    [HideInInspector] public int[,] grid;
+    [HideInInspector] public int movesLeft;
+    [HideInInspector] public int appliedMoves;
+    [HideInInspector] public int blocksLeftToFinish;
 
     [Header("Controls")]
     public KeyCode moveUpKey = KeyCode.UpArrow;
@@ -65,9 +72,15 @@ public class BlockController : MonoBehaviour
     public KeyCode moveLeftKey = KeyCode.LeftArrow;
     public KeyCode moveRightKey = KeyCode.RightArrow;
 
-    [HideInInspector] public BlockParams[] blocks;
-    [HideInInspector] public int[,] grid;
-    [HideInInspector] public int appliedMoves;
+    // сенсорные экраны и свайпы мышью
+    private Vector2 startTouchPosition;
+    private Vector2 endTouchPosition;
+
+    private Vector2 startMousePosition;
+    private Vector2 endMousePosition;
+
+    public float minSwipeDistance = 50f;
+    
 
     void Start()
     {
@@ -79,6 +92,8 @@ public class BlockController : MonoBehaviour
         createdWalls = levelEditor.createdWalls;
         createdBlocks = levelEditor.createdBlocks;
         createdFinishBlocks = levelEditor.createdFinishBlocks;
+
+        blocksLeftToFinish = levelEditor.createdBlocks.Length;
 
         for (int i = 0; i <= blocks.Length - 1; i++)
         {
@@ -97,6 +112,8 @@ public class BlockController : MonoBehaviour
             var vector2intToVector2 = new Vector2(createdBlocks[selectedBlockIndex].transform.position.x, createdBlocks[selectedBlockIndex].transform.position.y);
             selectedObject.transform.position = vector2intToVector2;
         }
+
+        movesLeft = levelEditor.MovesForLevel;
     }
 
     void Update()
@@ -108,14 +125,10 @@ public class BlockController : MonoBehaviour
                 createdBlocks[selectedBlockIndex].transform.position.y);
             selectedObject.transform.position = vector2intToVector2;
 
-            //if (finishedBlocks == blocks.Length)
-            //{
-            //    LevelFinished.IsLevelFinished = true;
-            //    Debug.Log("Level Finished");
-            //}
-
+            // движение блоков
             if (!isMoving && blocks[selectedBlockIndex].IsControllable)
             {
+                // клавиатура
                 if (Input.GetKeyDown(moveUpKey))
                 {
                     StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.up));
@@ -132,7 +145,34 @@ public class BlockController : MonoBehaviour
                 {
                     StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.right));
                 }
+                // сенсорное
+                if (Input.touchCount > 0)
+                {
+                    Touch touch = Input.GetTouch(0);
+
+                    if (touch.phase == TouchPhase.Began)
+                    {
+                        startTouchPosition = touch.position;
+                    }
+                    else if (touch.phase == TouchPhase.Ended)
+                    {
+                        endTouchPosition = touch.position;
+                        ProcessSwipe(startTouchPosition, endTouchPosition);
+                    }
+                }
+                // мышью
+                if (Input.GetMouseButtonDown(0))
+                {
+                    startMousePosition = Input.mousePosition;
+                }
+                else if (Input.GetMouseButtonUp(0))
+                {
+                    endMousePosition = Input.mousePosition;
+                    ProcessSwipe(startMousePosition, endMousePosition);
+                }
             }
+
+            // когда движение закончено, то можно сменить активный блок и проверка встал ли на финиш
             if (!isMoving)
             {
                 if (Input.GetAxis("Mouse ScrollWheel") > 0f && selectedBlockIndex + 1 <= maxIndex)
@@ -142,26 +182,53 @@ public class BlockController : MonoBehaviour
                 CheckBlocksFinish();
             }
 
+            // подсчёт звёзд
             if (isAllBlocksFinished())
             {
                 LevelFinished.IsLevelFinished = true;
-                if (levelEditor.ThreeStarsMoves != 0 & appliedMoves <= levelEditor.ThreeStarsMoves)
+                if (levelEditor.StarsForLevel == true & appliedMoves <= levelEditor.ThreeStarsMoves)
                     Debug.Log("Three Stars");
-                else if (levelEditor.TwoStarsMoves != 0 & appliedMoves <= levelEditor.TwoStarsMoves)
+                else if (levelEditor.StarsForLevel == true & appliedMoves <= levelEditor.TwoStarsMoves)
                     Debug.Log("Two Stars");
-                else if (appliedMoves <= levelEditor.MovesForLevel)
+                else if (appliedMoves == levelEditor.MovesForLevel || isAllBlocksFinished())
                     Debug.Log("One star (or stars disabled)");
+                sceneController.CheckAndLoadScene(blocksLeftToFinish == 0);
             }
-            // если закончились ходы
-            if (appliedMoves >= levelEditor.MovesForLevel)
+
+            // если закончились ходы или уровень пройден выключаем управление блоками
+            if (movesLeft == 0 || LevelFinished.IsLevelFinished)
             {
-                if (isAllBlocksFinished())
-                    LevelFinished.IsLevelFinished = true;
+                for (int i = 0; i < blocks.Length; i++)
+                    blocks[i].IsControllable = false;
+            }
+        }
+    }
+
+    private void ProcessSwipe(Vector2 start, Vector2 end)
+    {
+        if (isMoving) return;
+
+        float distance = Vector2.Distance(start, end);
+        if (distance >= minSwipeDistance)
+        {
+            Vector2 direction = end - start;
+            direction.Normalize();
+
+            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+            {
+                // Горизонтальный свайп
+                if (direction.x > 0)
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.right));
                 else
-                    for (int i = 0; i < blocks.Length; i++)
-                    {
-                        blocks[i].IsControllable = false;
-                    }
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.left));
+            }
+            else
+            {
+                // Вертикальный свайп
+                if (direction.y > 0)
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.up));
+                else
+                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], Vector2Int.down));
             }
         }
     }
@@ -183,6 +250,7 @@ public class BlockController : MonoBehaviour
         }
 
         appliedMoves++;
+        movesLeft--;
 
         UpdateGrid(startBlockPosition, targetBlockPosition);
 
@@ -209,15 +277,7 @@ public class BlockController : MonoBehaviour
 
     bool isAllBlocksFinished()
     {
-        int q = blocks.Length;
-        for (int i = 0; i < blocks.Length; i++)
-        {
-            if (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition)
-                q--;
-        }
-        if (q == 0)
-            return true;
-        return false;
+        return blocksLeftToFinish == 0;
     }
 
     void CheckBlocksFinish()
@@ -226,26 +286,71 @@ public class BlockController : MonoBehaviour
         {
             if (blocks[i].IsControllable == true)
             {
-                if (blocks[i].UniversalBlock)
+                if (blocks[i].Finished == false)
                 {
-                    for(int a = 0; a < createdBlocks.Length; a++)
+                    if (blocks[i].UniversalBlock)
                     {
-                        if (GetBlockPosition(createdBlocks[i]) == blocks[a].FinishPosition)
+                        for (int a = 0; a < createdBlocks.Length; a++)
                         {
-                            blocks[i].IsControllable = false;
-                            finishedBlocks++;
-                            break;
+                            if (GetBlockPosition(createdBlocks[i]) == blocks[a].FinishPosition ||
+                                blocks[a].AdditionalFinishPositions.Any(pos => pos == GetBlockPosition(createdBlocks[i])))
+                            {
+                                if (DisableMovementForBlockOnFinish)
+                                    blocks[i].IsControllable = false;
+                                finishedBlocks++;
+                                blocksLeftToFinish--;
+                                blocks[i].Finished = true;
+                                break;
+                            }
                         }
                     }
+                    else if (!blocks[i].UniversalBlock &&
+                             (GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition ||
+                              blocks[i].AdditionalFinishPositions.Any(pos => pos == GetBlockPosition(createdBlocks[i]))))
+                    {
+                        if (DisableMovementForBlockOnFinish)
+                            blocks[i].IsControllable = false;
+                        finishedBlocks++;
+                        blocksLeftToFinish--;
+                        blocks[i].Finished = true;
+                    }
                 }
-                else if (blocks[i].UniversalBlock == false & GetBlockPosition(createdBlocks[i]) == blocks[i].FinishPosition)
+
+                if (blocks[i].Finished == true)
                 {
-                    blocks[i].IsControllable = false;
-                    finishedBlocks++;
+                    if (blocks[i].UniversalBlock)
+                    {
+                        bool stillOnAnyFinish = false;
+                        for (int a = 0; a < createdBlocks.Length; a++)
+                        {
+                            if (GetBlockPosition(createdBlocks[i]) == blocks[a].FinishPosition ||
+                                blocks[a].AdditionalFinishPositions.Any(pos => pos == GetBlockPosition(createdBlocks[i])))
+                            {
+                                stillOnAnyFinish = true;
+                                break;
+                            }
+                        }
+
+                        if (!stillOnAnyFinish)
+                        {
+                            finishedBlocks--;
+                            blocksLeftToFinish++;
+                            blocks[i].Finished = false;
+                        }
+                    }
+                    else if (!blocks[i].UniversalBlock &&
+                             GetBlockPosition(createdBlocks[i]) != blocks[i].FinishPosition &&
+                             !blocks[i].AdditionalFinishPositions.Any(pos => pos == GetBlockPosition(createdBlocks[i])))
+                    {
+                        finishedBlocks--;
+                        blocksLeftToFinish++;
+                        blocks[i].Finished = false;
+                    }
                 }
             }
         }
     }
+
 
     void MoveBlockFast(GameObject block, Vector2Int direction)
     {

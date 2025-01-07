@@ -28,6 +28,24 @@ public class LevelEditorEditor : Editor
     }
 }
 
+public enum TileTypes
+{
+    None,
+    Teleport,
+    Pit,
+    Invisibility
+}
+
+[System.Serializable]
+public class AdditionalTiles
+{
+    public TileTypes TileType;
+    public bool IsActive;
+    public int VisibilityFreq;
+    public bool IsSymmetryMoving;
+    public bool IsErrorTile;
+    public bool IsStopTile;
+}
 
 [System.Serializable]
 public class BlockParams
@@ -35,6 +53,7 @@ public class BlockParams
     public GameObject Prefab;
     public Vector2Int Position;
     public Vector2Int FinishPosition;
+    public Vector2Int[] AdditionalFinishPositions;
     public Sprite sprite;
     public Sprite finishSprite;
     public float moveSpeed = 5.0f;
@@ -42,7 +61,8 @@ public class BlockParams
     public bool UniversalBlock = false;
     public bool CollideWithBlocks = true;
     public bool CollideWithWalls = true;
-    [HideInInspector] public bool IsControllable;
+    [HideInInspector] public bool IsControllable = true;
+    [HideInInspector] public bool Finished = false;
 }
 
 public class LevelEditor : MonoBehaviour
@@ -62,19 +82,26 @@ public class LevelEditor : MonoBehaviour
     public BlockParams[] initialBlocks;
     public Vector2Int[] walls;
     public Sprite wallSprite;
+    public AdditionalTiles[] uniqueTiles;
     [HideInInspector] public GameObject[] createdBlocks;
     [HideInInspector] public GameObject[] createdWalls;
     [HideInInspector] public GameObject[] createdFinishBlocks;
+    [HideInInspector] public List<GameObject> createdAdditionalFinishBlocks;
+    [HideInInspector] public HashSet<GameObject> UniquePrefabs;
+    [HideInInspector] public int UniquePrefabsCount;
 
     [Header("Optional settings")]
     [CompactHeader("Can be leaved as default")]
     [Space(5)]
     public Camera camera;
     [Space(5)]
-    public float paddingTop = 10f;
-    public float paddingBottom = 10f;
-    public float paddingLeft = 10f;
-    public float paddingRight = 10f;
+    public float paddingTop = 1f;
+    public float paddingBottom = 1f;
+    public float paddingLeft = 1f;
+    public float paddingRight = 1f;
+
+    [HideInInspector] public float TopSpaceBeforeLevel;
+    [HideInInspector] public float BotSpaceAfterLevel;
 
     [Header("Background settings")]
     public bool chessGrid;
@@ -95,6 +122,7 @@ public class LevelEditor : MonoBehaviour
         DrawWalls();
         DrawBlocks();
         DrawFinishTiles();
+        DrawBlocksMenu();
     }
 
     public void ClearLevel()
@@ -137,11 +165,25 @@ public class LevelEditor : MonoBehaviour
 
         grid = new int[levelSize.x, levelSize.y];
 
+        UniquePrefabsCount = CountUniquePrefabs();
+
         SetupCamera();
         DrawBackground();
         DrawWalls();
         DrawBlocks();
         DrawFinishTiles();
+        DrawBlocksMenu();
+    }
+
+    private int CountUniquePrefabs()
+    {
+        UniquePrefabs = new HashSet<GameObject>();
+
+        foreach (var block in initialBlocks)
+            if (block.Prefab != null)
+                UniquePrefabs.Add(block.Prefab);
+
+        return UniquePrefabs.Count;
     }
 
     private void SetupCamera()
@@ -149,7 +191,11 @@ public class LevelEditor : MonoBehaviour
         float screenAspect = (float)Screen.width / Screen.height;
 
         float totalWidth = levelSize.x * tileSize.x + paddingLeft + paddingRight;
-        float totalHeight = levelSize.y * tileSize.y + paddingTop + paddingBottom;
+        //float totalHeight = levelSize.y * tileSize.y + paddingTop + paddingBottom + paddingBlocksMenu + BlocksMenuSize.y;
+        float totalHeight = levelSize.y * tileSize.y + paddingTop + paddingBottom; //было так и это работало до меню блоков
+
+        TopSpaceBeforeLevel = totalHeight * 0.29f;
+        BotSpaceAfterLevel = totalHeight * 0.29f;
 
         float centerX = totalWidth / 2f - tileSize.x / 2f;
         float centerY = totalHeight / 2f - tileSize.y / 2f;
@@ -255,6 +301,8 @@ public class LevelEditor : MonoBehaviour
 
         createdFinishBlocks = new GameObject[createdBlocks.Length];
 
+        createdAdditionalFinishBlocks = new List<GameObject>();
+
         for (int i = 0; i < initialBlocks.Length; i++)
         {
             grid[initialBlocks[i].FinishPosition.x, initialBlocks[i].FinishPosition.y] = 0;
@@ -276,12 +324,46 @@ public class LevelEditor : MonoBehaviour
                 createdFinishBlocks[i].GetComponent<SpriteRenderer>().sprite = initialBlocks[i].sprite;
             }
             createdFinishBlocks[i].transform.parent = FinishParent.transform;
+            
+            for (int j = 0; j < initialBlocks[i].AdditionalFinishPositions.Length; j++)
+            {
+                var thisAdditionalFinishPositions = initialBlocks[i].AdditionalFinishPositions;
+                grid[thisAdditionalFinishPositions[j].x, thisAdditionalFinishPositions[j].y] = 0;
+
+                position = new Vector2(thisAdditionalFinishPositions[j].x * tileSize.x, thisAdditionalFinishPositions[j].y * tileSize.y);
+
+                createdAdditionalFinishBlocks.Add(Instantiate(initialBlocks[i].Prefab, position, Quaternion.identity));
+                createdAdditionalFinishBlocks[j].transform.parent = transform;
+
+                createdAdditionalFinishBlocks[j].transform.localScale = new Vector3(tileSize.x, tileSize.y, 1);
+
+                if (initialBlocks[i].finishSprite != null)
+                {
+                    createdAdditionalFinishBlocks[j].GetComponent<SpriteRenderer>().sprite = initialBlocks[i].finishSprite;
+                }
+                else
+                {
+                    var tempColor = initialBlocks[i].Prefab.GetComponent<SpriteRenderer>().color;
+                    createdAdditionalFinishBlocks[j].GetComponent<SpriteRenderer>().color = new Color(tempColor.r, tempColor.g, tempColor.b, 0.5f);
+                    createdAdditionalFinishBlocks[j].GetComponent<SpriteRenderer>().sprite = initialBlocks[i].sprite;
+                }
+                createdAdditionalFinishBlocks[j].transform.parent = FinishParent.transform;
+            }
         }
+    }
+
+    private void DrawBlocksMenu()
+    {
+        var BlockMenuParent = new GameObject("Blocks Menu");
+        BlockMenuParent.transform.parent = transform;
+
+        var createdMenuBlocks = new GameObject[UniquePrefabsCount];
+        int betweenBlocksPadding = 10;
+
     }
 
     void Update()
     {
-        
     }
 
     public class MinVector2IntAttribute : PropertyAttribute
