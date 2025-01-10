@@ -100,8 +100,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd45e9208aac7244babee84edf7be005, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blockType: 0
   Prefab: {fileID: 0}
   Position: {x: 0, y: 0}
   FinishPosition: {x: 0, y: 0}
+  sprite: {fileID: 0}
+  finishSprite: {fileID: 0}
+  moveSpeed: 5
+  CollideWithBlocks: 1
+  CollideWithWalls: 1
   IsControllable: 0

@@ -148,23 +148,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d081a9fb657bb0428f1ad76a7b47f60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelEditor: {fileID: 0}
+  levelEditor: {fileID: 922188678}
+  sceneController: {fileID: 471322451}
   sameSpeedForAllBlocks: 0
   moveSpeed: 0
   DisableMovementForBlockOnFinish: 0
-  SelectedSprite: {fileID: 0}
+  SelectedSprite: {fileID: 7586469070100464371, guid: 993cf151945616d4b9563f1d3ccdd46f, type: 3}
   createdBlocks: []
+  createdBlocksPositions: []
   createdFinishBlocks: []
   createdWalls: []
   finishedBlocks: 0
+  tileSize: {x: 0, y: 0}
   selectedBlockIndex: 0
+  blocks: []
+  movesLeft: 0
+  appliedMoves: 0
+  blocksLeftToFinish: 0
+  moveDirection: {x: 0, y: 0}
+  isBreakerTileReached: 0
   moveUpKey: 273
   moveDownKey: 274
   moveLeftKey: 276
   moveRightKey: 275
-  blocks: []
-  appliedMoves: 0
-  blocksLeftToFinish: 0
+  minSwipeDistance: 50
 --- !u!4 &90153776
 Transform:
   m_ObjectHideFlags: 0
@@ -224,8 +231,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: afc1ff7b498570d4fb3ca8d4bec77277, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CurrentSceneIndex: 1
-  NextSceneIndex: 0
+  delay: 3
 --- !u!1 &922188677
 GameObject:
   m_ObjectHideFlags: 0
@@ -255,27 +261,45 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c44b6f4d46493814fad60768188a0164, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blockController: {fileID: 0}
-  levelSize: {x: 0, y: 0}
+  blockController: {fileID: 90153775}
+  levelSize: {x: 5, y: 5}
+  tileScale: {x: 1, y: 1}
   tileSize: {x: 1, y: 1}
+  BackgroundSprite: {fileID: 0}
+  tileBoundsSprites:
+    SideBot: {fileID: -4109329765585792518, guid: 559bc67ea0eaf0c40b6a457e58c884bd, type: 3}
+    SideLeft: {fileID: 1951054468572527632, guid: 9f5df06fcbaaa154c83d2338ca9de6f2, type: 3}
+    SideRight: {fileID: 7629795793399271823, guid: 2aff7b09d16398d46b09ec6a8fa4fc5a, type: 3}
+    SideTop: {fileID: 4691853966811719272, guid: 0d6272f3d7858af4abb0b16fb82082e5, type: 3}
+    CornerBotLeft: {fileID: -7273754302378955456, guid: 8cff5725c17a59148828869154c08b16, type: 3}
+    CornerBotRight: {fileID: 6350732786333251231, guid: fe5d221c65cb8d249a130c8e285e1af5, type: 3}
+    CornerTopLeft: {fileID: 1206932348300954265, guid: 3d683b14baefe034b85dea5805849c6f, type: 3}
+    CornerTopRight: {fileID: 1991536366286084033, guid: 268b112763049904b9cbb71b254c643f, type: 3}
+  initialWalls: []
   StarsForLevel: 0
   MovesForLevel: 0
   TwoStarsMoves: 0
   ThreeStarsMoves: 0
   initialBlocks: []
-  walls: []
-  wallSprite: {fileID: 0}
+  uniqueTiles: []
   createdBlocks: []
+  createdBlocksPositions: []
   createdWalls: []
   createdFinishBlocks: []
+  createdAdditionalFinishBlocks: []
+  UniquePrefabsCount: 0
   camera: {fileID: 0}
-  paddingTop: 10
-  paddingBottom: 10
-  paddingLeft: 10
-  paddingRight: 10
-  chessGrid: 0
-  BackgroundPrefab: {fileID: 0}
-  BackgroundPrefab2: {fileID: 0}
+  CustomPaddingHorizontal: 0
+  CustomPaddingVertical: 0
+  paddingHorizontal: 0
+  paddingVertical: 0
+  TopHeightSpaceBeforeLevel: 377.28998
+  BotHeightSpaceAfterLevel: 377.28998
+  SpaceHeightForLevel: 546.42
+  TotalSpaceHeightForLevel: 0
+  chessGrid: 1
+  BackgroundPrefab: {fileID: 6654457570130937460, guid: 699d2447bb8a38a49a81c31bc5484b7d, type: 3}
+  BackgroundPrefab2: {fileID: 8631465252271676597, guid: 69aadc6ac9212154c8f7a11a227fa2cc, type: 3}
 --- !u!4 &922188679
 Transform:
   m_ObjectHideFlags: 0
@@ -285,7 +309,7 @@ Transform:
   m_GameObject: {fileID: 922188677}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 307, y: 377.78998, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -388,6 +412,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1319844873}
-  - {fileID: 90153776}
   - {fileID: 922188679}
+  - {fileID: 90153776}
   - {fileID: 471322450}
