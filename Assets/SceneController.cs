@@ -12,6 +12,17 @@ public class SceneController : MonoBehaviour
         currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
     }
 
+    public void ReloadSceneWithNoDelay()
+    {
+        ReloadNoDelay();
+    }
+
+    private void ReloadNoDelay()
+    {
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        SceneManager.LoadScene(currentSceneName);
+    }
+
     public void ReloadSceneWithDelay()
     {
         StartCoroutine(ReloadAfterDelay());
@@ -19,10 +30,8 @@ public class SceneController : MonoBehaviour
 
     private IEnumerator ReloadAfterDelay()
     {
-        // Ждем указанное время
         yield return new WaitForSeconds(delay);
 
-        // Перезагружаем текущую сцену
         string currentSceneName = SceneManager.GetActiveScene().name;
         SceneManager.LoadScene(currentSceneName);
     }

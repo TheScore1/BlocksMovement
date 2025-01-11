@@ -8,6 +8,7 @@ using static Unity.Collections.AllocatorManager;
 using UnityEngine.UIElements;
 using UnityEngine.U2D;
 using System.Linq;
+using System;
 
 [CustomEditor(typeof(LevelEditor))]
 public class LevelEditorEditor : Editor
@@ -102,17 +103,41 @@ public class BlockParams
     [HideInInspector] public bool Finished = false;
 }
 
+public class PrefabIdentifier
+{
+    public GameObject prefabReference;
+    public GameObject obj;
+}
+
 public class LevelEditor : MonoBehaviour
 {
     public BlockController blockController;
+    public DynamicTextManager TextLevelIndex;
+    public DynamicTextManager TextMovesCount;
 
     [Header("General settings")]
     public Vector2Int levelSize;
     [MinVector2Int(1,1)] public Vector2Int tileScale;
     [HideInInspector] public Vector2 tileSize;
 
+    public string LevelName;
+
     [Space(5)]
     public Sprite BackgroundSprite;
+
+    [Space(5)]
+    public Sprite settinsMenuSprite;
+    [HideInInspector] public GameObject settingsMenuObject;
+    public Sprite levelInfoMenuSprite;
+    [HideInInspector] public GameObject levelInfoMenuObject;
+    [HideInInspector] public Vector2 levelInfoMenuSize;
+    public Sprite isStarAchievedSprite;
+    public Sprite isStarNotAchievedSprite;
+    public Sprite blocksMenuSprite;
+    [HideInInspector] public GameObject blocksMenuObject;
+    [HideInInspector] GameObject background;
+    [HideInInspector] public List<PrefabIdentifier> createdBlocksMenuPrefabs;
+    [HideInInspector] public GameObject SelectedPrefab;
 
     [Space(5)]
     public BoundsTilesSprites tileBoundsSprites;
@@ -123,12 +148,15 @@ public class LevelEditor : MonoBehaviour
     public Sprite PitSprite;
     public Sprite TeleportSprite;
     public Sprite StopperSprite;
+    public Sprite InvisibilitySprite;
 
     [Space(5)]
+    public int CurrentStarsCount;
     public bool StarsForLevel;
     public int MovesForLevel;
     [DisabledIf("StarsForLevel")] public int TwoStarsMoves;
     [DisabledIf("StarsForLevel")] public int ThreeStarsMoves;
+    [HideInInspector] public List<GameObject> createdStars;
 
     [Space(5)]
     public BlockParams[] initialBlocks;
@@ -139,6 +167,7 @@ public class LevelEditor : MonoBehaviour
     [HideInInspector] public GameObject[] createdFinishBlocks;
     [HideInInspector] public GameObject[] createdAdditionalFinishBlocks;
     [HideInInspector] public HashSet<GameObject> UniquePrefabs;
+    [HideInInspector] public List<GameObject> createdAdditionalTiles;
     [HideInInspector] public int UniquePrefabsCount;
 
     [Header("Optional settings")]
@@ -156,6 +185,10 @@ public class LevelEditor : MonoBehaviour
     [HideInInspector] public float BotHeightSpaceAfterLevel;
     [HideInInspector] public float SpaceHeightForLevel;
     [HideInInspector] public float TotalSpaceHeightForLevel;
+
+    [HideInInspector] public float starSectionWidth;
+    [HideInInspector] public float textSectionWidth;
+    [HideInInspector] public float textSectionHeight;
 
     [Space(5)]
     [Header("Background settings")]
@@ -185,9 +218,8 @@ public class LevelEditor : MonoBehaviour
         SceneView sceneView = SceneView.lastActiveSceneView;
         if (sceneView != null)
         {
-            // Перемещаем камеру
             sceneView.pivot = new Vector3(Screen.width / 2, Screen.height / 2);
-            sceneView.Repaint(); // Обновляем SceneView
+            sceneView.Repaint();
         }
 #endif
     }
@@ -244,6 +276,17 @@ public class LevelEditor : MonoBehaviour
         InitializeWallsSpriteMap();
         CalculateTileSize();
         SetupCamera();
+
+        createdStars = new List<GameObject>();
+        
+        createdBlocksMenuPrefabs = new List<PrefabIdentifier>();
+
+        SelectedPrefab = new GameObject("Selected Prefab");
+        var selectedRenderer = SelectedPrefab.AddComponent<SpriteRenderer>();
+        selectedRenderer.sprite = blockController.SelectedObjectMenuSprite;
+        selectedRenderer.sortingOrder = 10;
+        SelectedPrefab.transform.parent = transform;
+
         DrawBackground();
         DrawCompositeWalls();
         DrawAdditionalTiles();
@@ -251,6 +294,8 @@ public class LevelEditor : MonoBehaviour
         DrawBlocks();
         DrawFinishTiles();
         DrawBlocksMenu();
+        DrawSettingsMenu();
+        DrawLevelInfoMenu();
     }
 
     private void InitializeGridAndWalls()
@@ -314,6 +359,7 @@ public class LevelEditor : MonoBehaviour
             y * tileSize.y,
             0);
 
+        // Верхняя стена
         if (!IsWall(x, y + 1))
         {
             AddSpriteRenderer(wallObject, wallsSpriteMap[BoundsSpriteNumbers.SideTop], Vector2.zero);
@@ -344,8 +390,6 @@ public class LevelEditor : MonoBehaviour
             AddSpriteRenderer(wallObject, wallsSpriteMap[BoundsSpriteNumbers.CornerBotRight], Vector2.zero);
             AddSpriteRenderer(wallObject, wallsSpriteMap[BoundsSpriteNumbers.CornerTopRight], Vector2.zero);
         }
-
-        // Углы:
 
         // Верхний левый угол
         if (IsWall(x - 1, y) && IsWall(x, y + 1) && !IsWall(x - 1, y + 1))
@@ -397,22 +441,18 @@ public class LevelEditor : MonoBehaviour
 
     private void CalculateTileSize()
     {
-        // Размеры уровня с учетом tileScale
         float levelWidth = levelSize.x * tileScale.x;
         float levelHeight = levelSize.y * tileScale.y;
 
-        // Размеры доступного пространства (с учетом padding)
         float availableWidth = Screen.width - paddingHorizontal;
         float availableHeight = Screen.height - BotHeightSpaceAfterLevel - TopHeightSpaceBeforeLevel;
 
-        // Вычисляем масштаб тайлов
         float scaleX = availableWidth / levelWidth;
         float scaleY = availableHeight / levelHeight;
 
         // Используем минимальный масштаб для сохранения адаптивности
         float finalScale = Mathf.Min(scaleX, scaleY);
 
-        // Устанавливаем размеры тайлов
         tileSize = new Vector2(tileScale.x * finalScale, tileScale.y * finalScale);
     }
 
@@ -457,7 +497,7 @@ public class LevelEditor : MonoBehaviour
 
     private void DrawBackground()
     {
-        GameObject background = new GameObject("Background");
+        background = new GameObject("Background");
         var spriteRenderer = background.AddComponent<SpriteRenderer>();
 
         if (BackgroundSprite != null)
@@ -548,7 +588,7 @@ public class LevelEditor : MonoBehaviour
         additionalTileParent.transform.parent = transform;
         additionalTileParent.transform.parent.position = new Vector3(Screen.width / 2 - levelSize.x * tileSize.x / 2 + tileSize.x / 2, BotHeightSpaceAfterLevel + tileSize.y / 2);
 
-        var createdAdditionalTiles = new List<GameObject>();
+        createdAdditionalTiles = new List<GameObject>();
 
         for (int i = 0; i < uniqueTiles.Length; i++)
         {
@@ -564,7 +604,6 @@ public class LevelEditor : MonoBehaviour
 
             if (uniqueTiles[i].TileType == TileTypes.Teleport)
             {
-                Debug.Log("teleport");
                 var teleportTile = new GameObject();
                 teleportTile.transform.position = position2;
                 teleportTile.transform.parent = transform;
@@ -582,16 +621,21 @@ public class LevelEditor : MonoBehaviour
 
             else if (uniqueTiles[i].TileType == TileTypes.Pit)
             {
-                Debug.Log("pit");
                 var rendererThisTile = thisTile.AddComponent<SpriteRenderer>();
                 rendererThisTile.sprite = PitSprite;
             }
                     
             else if (uniqueTiles[i].TileType == TileTypes.Stopper)
             {
-                Debug.Log("stopper");
                 var rendererThisTile = thisTile.AddComponent<SpriteRenderer>();
                 rendererThisTile.sprite = StopperSprite;
+            }
+
+            else if (uniqueTiles[i].TileType == TileTypes.Invisibility)
+            {
+                var rendererThisTile = thisTile.AddComponent<SpriteRenderer>();
+                rendererThisTile.sprite = InvisibilitySprite;
+                rendererThisTile.color = new Color(1, 1, 1, 1);
             }
 
             thisTile.transform.parent = additionalTileParent.transform;
@@ -732,12 +776,272 @@ public class LevelEditor : MonoBehaviour
         var BlockMenuParent = new GameObject("Blocks Menu");
         BlockMenuParent.transform.parent = transform;
 
-        var createdMenuBlocks = new GameObject[UniquePrefabsCount];
-        
+        blocksMenuObject = new GameObject("Blocks Menu Object");
+        var renderer = blocksMenuObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = blocksMenuSprite;
+
+        var backgroundRenderer = background.GetComponent<SpriteRenderer>();
+
+        Vector2 backgroundSize = backgroundRenderer.bounds.size;
+
+        Vector3 backgroundPosition = new Vector3(
+            backgroundRenderer.bounds.min.x,
+            backgroundRenderer.bounds.min.y,
+            background.transform.position.z
+        );
+
+        float offsetX = backgroundSize.x * 0.26f;
+        float offsetY = backgroundSize.y * 0.13f;
+
+        // Масштабируем меню относительно высоты фона
+        float scale = backgroundSize.y * 0.047f / 1.5f;
+        renderer.transform.localScale = new Vector3(scale, scale, 1f);
+
+        // Размер меню (с учетом масштабирования)
+        Vector2 blocksMenuSize = renderer.bounds.size;
+
+        blocksMenuObject.transform.position = new Vector3(
+            backgroundPosition.x + offsetX + blocksMenuSize.x / 2, // Учитываем центр меню
+            backgroundPosition.y + offsetY + blocksMenuSize.y / 2, // Учитываем центр меню
+            backgroundPosition.z
+        );
+
+        int prefabsCount = UniquePrefabsCount;
+        if (prefabsCount == 0) return;
+
+        // Пространство для блоков
+        float menuWidth = blocksMenuSize.x;
+        float edgeSpacing = menuWidth * 0.05f;
+        float spacing = menuWidth * 0.02f; // Отступ между блоками
+        float availableWidth = menuWidth - 2 * edgeSpacing; // Пространство для всех блоков (с учётом отступов)
+        float maxBlockWidth = (availableWidth - (spacing * (prefabsCount - 1))) / prefabsCount;
+        float maxBlockHeight = blocksMenuSize.y * 0.8f; // Оставляем небольшой запас сверху и снизу
+        float maxBlockSize = Mathf.Min(maxBlockWidth, maxBlockHeight);
+
+        // Центрируем блоки в панели
+        float totalBlocksWidth = (maxBlockSize * prefabsCount) + (spacing * (prefabsCount - 1));
+        float startX = blocksMenuObject.transform.position.x - totalBlocksWidth / 2 + maxBlockSize / 2;
+
+        for (int i = 0; i < prefabsCount; i++)
+        {
+            var prefab = UniquePrefabs.ElementAt(i);
+
+            var thisPrefab = Instantiate(prefab, Vector3.zero, Quaternion.identity);
+            thisPrefab.transform.parent = blocksMenuObject.transform;
+
+            var thisRenderer = thisPrefab.GetComponent<SpriteRenderer>();
+            if (thisRenderer.sprite == null)
+            {
+                var thisBlock = initialBlocks.First(z => z.Prefab == prefab);
+                thisRenderer.sprite = thisBlock.sprite;
+            }
+            thisRenderer.sortingOrder = 1;
+
+            // Рассчитываем масштаб блока
+            float scaleFactor = CalculateBlockScale(thisRenderer, maxBlockSize);
+            thisPrefab.transform.localScale = new Vector3(scaleFactor, scaleFactor, 1f) / blocksMenuObject.transform.localScale.x;
+
+            // Позиция блока
+            float positionX = startX + i * (maxBlockSize + spacing);
+            float positionY = blocksMenuObject.transform.position.y;
+
+            thisPrefab.transform.position = new Vector3(positionX, positionY, blocksMenuObject.transform.position.z);
+
+            var temp = new PrefabIdentifier();
+            temp.prefabReference = prefab;
+            temp.obj = thisPrefab;
+
+            createdBlocksMenuPrefabs.Add(temp);
+        }
+    }
+
+    float CalculateBlockScale(SpriteRenderer spriteRenderer, float targetSize)
+    {
+        Vector2 spritePixelSize = spriteRenderer.sprite.rect.size;
+
+        // Вычисляем размер спрайта в Unity-единицах
+        Vector2 spriteWorldSize = spritePixelSize / spriteRenderer.sprite.pixelsPerUnit;
+
+        // Рассчитываем масштаб, чтобы спрайт соответствовал целевому размеру
+        float scaleFactor = targetSize / Mathf.Max(spriteWorldSize.x, spriteWorldSize.y);
+
+        return scaleFactor;
+    }
+
+    public void DrawSettingsMenu()
+    {
+        var SettingsMenuParent = new GameObject("Settings Menu");
+        SettingsMenuParent.transform.parent = transform;
+
+        settingsMenuObject = new GameObject();
+        var renderer = settingsMenuObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = settinsMenuSprite;
+
+        var backgroundRenderer = background.GetComponent<SpriteRenderer>();
+
+        Vector2 backgroundSize = backgroundRenderer.bounds.size;
+
+        Vector3 backgroundTopLeft = new Vector3(
+        backgroundRenderer.bounds.min.x,
+        backgroundRenderer.bounds.max.y,
+        background.transform.position.z);
+
+        // Отступы от левого верхнего угла (в процентах)
+        float offsetX = backgroundSize.x * 0.089f;
+
+        var settingsRenderer = settingsMenuObject.GetComponent<SpriteRenderer>();
+
+        float scale = backgroundSize.y * 0.11f / 1.5f;
+        settingsMenuObject.transform.localScale = new Vector3(scale, scale, 1f);
+
+        Vector2 settingsSize = settingsRenderer.bounds.size;
+
+        settingsMenuObject.transform.position = new Vector3(
+            backgroundTopLeft.x + offsetX + settingsSize.x / 2,
+            backgroundTopLeft.y - offsetX - settingsSize.y / 2,
+            backgroundTopLeft.z
+        );
+    }
+
+    public void DrawLevelInfoMenu()
+    {
+        var levelInfoMenuParent = new GameObject("LevelInfo Menu");
+        levelInfoMenuParent.transform.parent = transform;
+
+        levelInfoMenuObject = new GameObject("LevelInfo Menu Object");
+        var renderer = levelInfoMenuObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = levelInfoMenuSprite;
+
+        var backgroundRenderer = background.GetComponent<SpriteRenderer>();
+
+        Vector2 backgroundSize = backgroundRenderer.bounds.size;
+
+        Vector3 backgroundTopRight = new Vector3(
+        backgroundRenderer.bounds.max.x,
+        backgroundRenderer.bounds.max.y,
+        background.transform.position.z);
+
+        float offset = backgroundSize.x * 0.084f; // Отступ в 8.4% от ширины экрана
+
+        float scale = backgroundSize.y * 0.39f / 1.5f;
+        renderer.transform.localScale = new Vector3(scale, scale, 1f);
+
+        Vector2 levelMenuSize = renderer.bounds.size;
+
+        levelInfoMenuSize = levelMenuSize;
+
+        levelInfoMenuObject.transform.position = new Vector3(
+            backgroundTopRight.x - offset - levelMenuSize.x / 2,
+            backgroundTopRight.y - offset - levelMenuSize.y / 2,
+            backgroundTopRight.z
+        );
+
+        starSectionWidth = levelMenuSize.x * 0.6f;
+        textSectionWidth = levelMenuSize.x - starSectionWidth; // Доступная ширина для текста
+        textSectionHeight = levelMenuSize.y * 0.5f; // 40% высоты меню отводится под текст
+
+        TextLevelIndex.ChangeTextForLevel(LevelName);
+        TextMovesCount.ChangeTextForMoves(blockController.appliedMoves.ToString());
+
+        TextLevelIndex.textMeshPro.fontSize = TextLevelIndex.CalculateAdaptiveFontSize(textSectionWidth, textSectionHeight) * 0.7f;
+        TextMovesCount.textMeshPro.fontSize = TextMovesCount.CalculateAdaptiveFontSize(textSectionWidth, textSectionHeight);
+
+        TextLevelIndex.ChangeTextPosition(new Vector3(levelInfoMenuObject.transform.position.x, levelInfoMenuObject.transform.position.y + levelInfoMenuSize.y * 0.3f, -8));
+        TextMovesCount.ChangeTextPosition(new Vector3(levelInfoMenuObject.transform.position.x, levelInfoMenuObject.transform.position.y + levelInfoMenuSize.y * 0.05f, -8));
+
+        float edgeSpacing = levelMenuSize.x * 0.25f;
+        float spacing = levelMenuSize.x * 0.02f;
+        float availableWidth = levelMenuSize.x - 2 * edgeSpacing;
+        float maxStarWidth = (availableWidth - (spacing * (3 - 1))) / 3;
+
+        float maxStarHeight = levelMenuSize.y * 0.26f;
+        float maxStarSize = Mathf.Min(maxStarWidth, maxStarHeight);
+
+        float totalStarsWidth = (maxStarSize * 3) + (spacing * (3 - 1));
+        float startX = levelInfoMenuObject.transform.position.x - totalStarsWidth / 2 + maxStarSize / 2;
+
+        for (int k = 0; k < 3; k++)
+        {
+            GameObject thisStar = new GameObject("Star");
+
+            thisStar.transform.parent = levelInfoMenuParent.transform;
+
+            thisStar.AddComponent<SpriteRenderer>();
+            var thisRenderer = thisStar.GetComponent<SpriteRenderer>();
+
+            if (isStarNotAchievedSprite != null)
+            {
+                thisRenderer.sprite = isStarNotAchievedSprite;
+            }
+            thisRenderer.sortingOrder = 6;
+
+            float scaleFactor = CalculateBlockScale(thisRenderer, maxStarSize);
+            thisStar.transform.localScale = new Vector3(scaleFactor, scaleFactor, 1f);
+
+            float positionX = startX + k * (maxStarSize + spacing);
+            float positionY = levelInfoMenuObject.transform.position.y - levelMenuSize.y / 2f / 2f;
+
+            thisStar.transform.position = new Vector3(positionX, positionY, levelInfoMenuObject.transform.position.z);
+
+            createdStars.Add(thisStar);
+        }
+    }
+
+    public void ChangeStarsSprite(int maxStarIndex)
+    {
+        if (maxStarIndex == -1)
+            for (var i = 0; i <= createdStars.Count - 1; i++)
+            {
+                var renderer = createdStars[i].GetComponent<SpriteRenderer>();
+                renderer.sprite = isStarNotAchievedSprite;
+            }
+        else if (maxStarIndex == 0)
+        {
+            var renderer = createdStars[0].GetComponent<SpriteRenderer>();
+            renderer.sprite = isStarAchievedSprite;
+            var renderer1 = createdStars[1].GetComponent<SpriteRenderer>();
+            renderer1.sprite = isStarNotAchievedSprite;
+            var renderer2 = createdStars[2].GetComponent<SpriteRenderer>();
+            renderer2.sprite = isStarNotAchievedSprite;
+        }
+        else if (maxStarIndex == 1)
+        {
+            var renderer = createdStars[0].GetComponent<SpriteRenderer>();
+            renderer.sprite = isStarAchievedSprite;
+            var renderer1 = createdStars[1].GetComponent<SpriteRenderer>();
+            renderer1.sprite = isStarAchievedSprite;
+            var renderer2 = createdStars[2].GetComponent<SpriteRenderer>();
+            renderer2.sprite = isStarNotAchievedSprite;
+        }
+        else if (maxStarIndex == 2)
+            for (var i = 0; i <= createdStars.Count - 1; i++)
+            {
+                var renderer = createdStars[i].GetComponent<SpriteRenderer>();
+                renderer.sprite = isStarAchievedSprite;
+            }
     }
 
     void Update()
     {
+        // Проверяем, установлен ли выбранный блок
+        if (blockController.SelectedObjectMenuSprite != null && blockController.selectedBlockIndex >= 0)
+        {
+            var prefab = createdBlocksMenuPrefabs.FirstOrDefault(z => z.prefabReference == initialBlocks[blockController.selectedBlockIndex].Prefab);
+            if (prefab != null)
+            {
+                SelectedPrefab.transform.position = prefab.obj.transform.position;
+                var selectedRenderer = SelectedPrefab.GetComponent<SpriteRenderer>();
+
+                var temp = prefab.obj.transform.localScale * blocksMenuObject.transform.localScale.x;
+
+                SelectedPrefab.transform.localScale = temp;
+                SelectedPrefab.GetComponent<SpriteRenderer>().size = prefab.obj.GetComponent<SpriteRenderer>().size;
+                selectedRenderer.sprite = blockController.SelectedObjectMenuSprite;
+                selectedRenderer.sortingOrder = 2;
+            }
+        }
+        else
+            SelectedPrefab.transform.position = new Vector3(9999f, 9999f, 9999f);
     }
 
     public class MinVector2IntAttribute : PropertyAttribute

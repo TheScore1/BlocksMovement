@@ -50,6 +50,7 @@ public class BlockController : MonoBehaviour
     [Space(10)]
 
     public Sprite SelectedSprite;
+    public Sprite SelectedObjectMenuSprite;
     [HideInInspector] GameObject selectedObject;
 
     [HideInInspector] private bool isMoving = false;
@@ -87,6 +88,7 @@ public class BlockController : MonoBehaviour
 
     private Vector2 startMousePosition;
     private Vector2 endMousePosition;
+    [HideInInspector] bool wasClickedBlocksMenu;
 
     public float minSwipeDistance = 50f;
     
@@ -126,68 +128,98 @@ public class BlockController : MonoBehaviour
         movesLeft = levelEditor.MovesForLevel;
     }
 
-    private void CountSelectedBlockPrefabIndex()
-    {
-        maxIndex = levelEditor.UniquePrefabsCount > 0 ? levelEditor.UniquePrefabsCount - 1 : 0;
-        minIndex = 0;
-
-        Debug.Log($"CountSelectedBlockPrefabIndex - UniquePrefabsCount: {levelEditor.UniquePrefabsCount}, MaxIndex: {maxIndex}");
-    }
-
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.R))
+            sceneController.ReloadSceneWithNoDelay();
+
         if (blocks.Length != 0)
         {
             if (selectedBlockIndex >= blocks.Length)
                 selectedBlockIndex = blocks.Length - 1;
-
-            Debug.Log("Finished = " + blocks[selectedBlockIndex].Finished);
-            Debug.Log("Blocks left to finish = " + blocksLeftToFinish);
 
             // движение блоков
             if (!isMoving && blocks[selectedBlockIndex].IsControllable)
             {
                 // клавиатура
                 if (Input.GetKeyDown(moveUpKey))
-                {
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.up));
-                }
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.up));
                 else if (Input.GetKeyDown(moveDownKey))
-                {
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.down));
-                }
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.down));
                 else if (Input.GetKeyDown(moveLeftKey))
-                {
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.left));
-                }
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.left));
                 else if (Input.GetKeyDown(moveRightKey))
-                {
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.right));
-                }
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.right));
+
+                else if (Input.GetKeyDown(KeyCode.Alpha1) && blocks[0] != null)
+                    selectedBlockIndex = 0;
+                else if (Input.GetKeyDown(KeyCode.Alpha2) && blocks[1] != null)
+                    selectedBlockIndex = 1;
+                else if (Input.GetKeyDown(KeyCode.Alpha3) && blocks[2] != null)
+                    selectedBlockIndex = 2;
+                else if (Input.GetKeyDown(KeyCode.Alpha4) && blocks[3] != null)
+                    selectedBlockIndex = 3;
+
                 // сенсорное
                 if (Input.touchCount > 0)
                 {
                     Touch touch = Input.GetTouch(0);
-
                     if (touch.phase == TouchPhase.Began)
-                    {
                         startTouchPosition = touch.position;
-                    }
                     else if (touch.phase == TouchPhase.Ended)
                     {
                         endTouchPosition = touch.position;
-                        ProcessSwipe(startTouchPosition, endTouchPosition);
+
+                        // Проверяем выбор блока
+                        Vector2 touchWorldPosition = Camera.main.ScreenToWorldPoint(endTouchPosition);
+                        for (int i = 0; i < levelEditor.createdBlocksMenuPrefabs.Count; i++)
+                        {
+                            var prefab = levelEditor.createdBlocksMenuPrefabs[i];
+                            var renderer = prefab.obj.GetComponent<SpriteRenderer>();
+
+                            if (renderer != null && IsMouseOverObject(touchWorldPosition, renderer))
+                            {
+                                selectedBlockIndex = i;
+                                wasClickedBlocksMenu = true;
+                                break;
+                            }
+                        }
+
+                        // Если блок не был выбран, обрабатываем свайп
+                        if (!wasClickedBlocksMenu)
+                            ProcessSwipe(startTouchPosition, endTouchPosition);
+
+                        wasClickedBlocksMenu = false;
                     }
                 }
+
                 // мышью
                 if (Input.GetMouseButtonDown(0))
                 {
                     startMousePosition = Input.mousePosition;
+                    Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+
+                    for (int i = 0; i < levelEditor.createdBlocksMenuPrefabs.Count; i++)
+                    {
+                        var prefab = levelEditor.createdBlocksMenuPrefabs[i];
+                        var renderer = prefab.obj.GetComponent<SpriteRenderer>();
+
+                        if (renderer != null && IsMouseOverObject(mousePosition, renderer))
+                        {
+                            selectedBlockIndex = i;
+                            wasClickedBlocksMenu = true;
+                            break;
+                        }
+                    }
                 }
                 else if (Input.GetMouseButtonUp(0))
                 {
-                    endMousePosition = Input.mousePosition;
-                    ProcessSwipe(startMousePosition, endMousePosition);
+                    if (!wasClickedBlocksMenu)
+                    {
+                        endMousePosition = Input.mousePosition;
+                        ProcessSwipe(startMousePosition, endMousePosition);
+                    }
+                    wasClickedBlocksMenu = false;
                 }
             }
 
@@ -204,6 +236,7 @@ public class BlockController : MonoBehaviour
             if (movesLeft == 0 && !isAllBlocksFinished())
             {
                 isMoving = true;
+                levelEditor.ChangeStarsSprite(-1);
                 sceneController.ReloadSceneWithDelay();
             }
 
@@ -211,13 +244,33 @@ public class BlockController : MonoBehaviour
             if (isAllBlocksFinished())
             {
                 LevelFinished.IsLevelFinished = true;
-                if (levelEditor.StarsForLevel == true & appliedMoves <= levelEditor.ThreeStarsMoves)
-                    Debug.Log("Three Stars");
-                else if (levelEditor.StarsForLevel == true & appliedMoves <= levelEditor.TwoStarsMoves)
-                    Debug.Log("Two Stars");
-                else if (appliedMoves == levelEditor.MovesForLevel || isAllBlocksFinished())
-                    Debug.Log("One star (or stars disabled)");
+                if (levelEditor.StarsForLevel)
+                {
+                    if (appliedMoves <= levelEditor.ThreeStarsMoves)
+                        levelEditor.ChangeStarsSprite(2);
+                    else if (appliedMoves <= levelEditor.TwoStarsMoves)
+                        levelEditor.ChangeStarsSprite(1);
+                    else if (appliedMoves <= levelEditor.MovesForLevel)
+                        levelEditor.ChangeStarsSprite(0);
+                }
+                else if (!levelEditor.StarsForLevel && appliedMoves <= levelEditor.MovesForLevel)
+                    levelEditor.ChangeStarsSprite(2);
                 sceneController.CheckAndLoadScene(blocksLeftToFinish == 0);
+            }
+            else
+            {
+                if (levelEditor.StarsForLevel)
+                {
+                    if (appliedMoves <= levelEditor.ThreeStarsMoves)
+                        levelEditor.ChangeStarsSprite(2);
+                    else if (appliedMoves <= levelEditor.TwoStarsMoves)
+                        levelEditor.ChangeStarsSprite(1);
+                    else if (appliedMoves <= levelEditor.MovesForLevel)
+                        levelEditor.ChangeStarsSprite(0);
+                }
+                else
+                    if (appliedMoves <= levelEditor.MovesForLevel)
+                        levelEditor.ChangeStarsSprite(2);
             }
 
             // если уровень пройден выключаем управление блоками
@@ -239,47 +292,15 @@ public class BlockController : MonoBehaviour
         }
     }
 
-    private void UpdateInvisibilityTiles()
+    bool IsMouseOverObject(Vector2 mousePos, SpriteRenderer renderer)
     {
-        foreach (var tile in levelEditor.uniqueTiles.Where(t => t.TileType == TileTypes.Invisibility))
-        {
-            // Обновление прозрачности
-            if (appliedMoves % 2 == 0)
-            {
-                float alpha = 1; // Значение от 0 до 1
-                var renderer = levelEditor.createdAdditionalFinishBlocks.FirstOrDefault(w => (Vector2)tile.Position == (Vector2)w.transform.position)?.GetComponent<SpriteRenderer>();
-                if (renderer != null)
-                {
-                    var color = renderer.color;
-                    renderer.color = new Color(color.r, color.g, color.b, alpha);
-                }
-            }
+        Vector3 objectCenter = renderer.bounds.center;
+        Vector3 objectExtents = renderer.bounds.extents;
 
-            if (appliedMoves % 2 == 1)
-            {
-                float alpha = 0; // Значение от 0 до 1
-                var renderer = levelEditor.createdAdditionalFinishBlocks.FirstOrDefault(w => (Vector2)tile.Position == (Vector2)w.transform.position)?.GetComponent<SpriteRenderer>();
-                if (renderer != null)
-                {
-                    var color = renderer.color;
-                    renderer.color = new Color(color.r, color.g, color.b, alpha);
-                }
-            }
-
-            // Перемещение вместе с активным блоком
-            if (tile.IsSymmetryMoving)
-            {
-                var newPos = tile.Position - createdBlocksPositions[selectedBlockIndex];
-                Vector2Int offset = new Vector2Int((int)newPos.x, (int)newPos.y);
-                var newPos1 = createdBlocksPositions[selectedBlockIndex] - offset;
-                tile.Position = new Vector2Int((int)(newPos1.x), (int)(newPos1.y));
-            }
-            else
-            {
-                if (isMoving)
-                    tile.Position += (Vector2Int)moveDirection; // Двигаться с блоком
-            }
-        }
+        return mousePos.x >= objectCenter.x - objectExtents.x &&
+               mousePos.x <= objectCenter.x + objectExtents.x &&
+               mousePos.y >= objectCenter.y - objectExtents.y &&
+               mousePos.y <= objectCenter.y + objectExtents.y;
     }
 
     private void ProcessSwipe(Vector2 start, Vector2 end)
@@ -296,20 +317,32 @@ public class BlockController : MonoBehaviour
             {
                 // Горизонтальный свайп
                 if (direction.x > 0)
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.right));
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.right));
                 else
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.left));
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.left));
             }
             else
             {
                 // Вертикальный свайп
                 if (direction.y > 0)
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.up));
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.up));
                 else
-                    StartCoroutine(MoveBlockSmoothly(createdBlocks[selectedBlockIndex], createdBlocksPositions[selectedBlockIndex], Vector2Int.down));
+                    StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.down));
             }
         }
     }
+
+    public Vector2Int Vector2ToVector2Int(Vector2 vector)
+    {
+        return new Vector2Int((int)vector.x, (int)vector.y);
+    }
+
+    private IEnumerator MoveBlockAndTiles(GameObject block, Vector2Int blockPosition, Vector2Int direction)
+    {
+        yield return MoveBlockSmoothly(block, blockPosition, direction);
+        yield return MoveInvisibilityTiles(direction);
+    }
+
 
     IEnumerator MoveBlockSmoothly(GameObject block, Vector2 positionInGrid, Vector2Int direction)
     {
@@ -326,11 +359,6 @@ public class BlockController : MonoBehaviour
 
             // Рассчитываем следующую позицию
             Vector2 nextPosition = targetBlockPosition + (Vector2)direction;
-
-            //if (levelEditor.uniqueTiles.Count(z => z.TileType == TileTypes.Invisibility && z.IsActive) > 0)
-            //{
-
-            //}
 
             AdditionalTiles teleportTile = levelEditor.uniqueTiles
                 .FirstOrDefault(t => ((Vector2)t.Position == nextPosition || (Vector2)t.Position2 == nextPosition) && t.TileType == TileTypes.Teleport && t.IsActive);
@@ -367,6 +395,7 @@ public class BlockController : MonoBehaviour
             {
                 yield return MoveToPosition(block, block.transform.position, CalculateWorldPosition(new Vector2Int((int)nextPosition.x, (int)nextPosition.y)));
 
+                levelEditor.ChangeStarsSprite(-1);
                 sceneController.ReloadSceneWithDelay();
                 isMoving = true;
                 yield break;
@@ -382,11 +411,7 @@ public class BlockController : MonoBehaviour
                     break;
                 }
                 else
-                {
                     isBreakerTileReached = true;
-
-                    //StartAllBlocksMovement(direction);
-                }
             }
             else
             {
@@ -408,28 +433,88 @@ public class BlockController : MonoBehaviour
         appliedMoves++;
         movesLeft--;
 
+        levelEditor.TextMovesCount.ChangeTextForMoves(appliedMoves.ToString());
+
         isMoving = false;
     }
 
-    //private void StartAllBlocksMovement(Vector2Int direction)
-    //{
-    //    for (int blockIndex = 0; blockIndex < createdBlocksPositions.Length; blockIndex++)
-    //    {
-    //        if (blocks[blockIndex] != null)
-    //        {
-    //            IEnumerator moveCoroutine = MoveBlockSmoothly(
-    //                createdBlocks[blockIndex],
-    //                createdBlocksPositions[blockIndex],
-    //                direction
-    //            );
-    //            movingBlocks.Add(moveCoroutine);
-    //            StartCoroutine(moveCoroutine);
-    //        }
-    //    }
+    private IEnumerator MoveInvisibilityTiles(Vector2 direction)
+    {
+        foreach (var invisibilityTile in levelEditor.uniqueTiles.Where(t => t.TileType == TileTypes.Invisibility && t.IsActive))
+        {
+            Vector2Int directionToMove = invisibilityTile.IsSymmetryMoving
+                ? new Vector2Int((int)direction.x, (int)direction.y)
+                : new Vector2Int(-(int)direction.x, -(int)direction.y);
 
-    //    // Ожидаем завершения движения всех блоков
-    //    StartCoroutine(WaitForAllBlocksToFinish());
-    //}
+            while (true)
+            {
+                Vector2Int nextPosition = invisibilityTile.Position + directionToMove;
+
+                // Проверка на столкновение с препятствием
+                if (!CanMoveToPosition(nextPosition))
+                    break;
+
+                yield return HandleInvisibilityTileRendering(invisibilityTile, nextPosition);
+
+                // Двигаем тайл
+                invisibilityTile.Position = nextPosition;
+            }
+        }
+    }
+
+    // Проверяет, можно ли переместиться на указанную позицию
+    private bool CanMoveToPosition(Vector2Int position)
+    {
+        // Проверка на выход за границы уровня
+        if (position.x < 0 || position.x >= levelEditor.levelSize.x || position.y < 0 || position.y >= levelEditor.levelSize.y)
+            return false;
+
+        // Проверка на столкновение с другими тайлами
+        if (levelEditor.uniqueTiles.Any(t => t.Position == position && t.IsActive))
+            return false;
+
+        if (grid[position.x, position.y] == 1 || grid[position.x, position.y] == 2)
+            return false;
+
+        return true;
+    }
+
+    private IEnumerator HandleInvisibilityTileRendering(AdditionalTiles invisibilityTile, Vector2Int nextPosition)
+    {
+        if (invisibilityTile.IsActive)
+        {
+            isMoving = true;
+            var associatedObject = levelEditor.createdAdditionalTiles.FirstOrDefault(obj => GetBlockPosition(obj) == invisibilityTile.Position);
+            if (associatedObject == null) yield break;
+
+            var renderer = associatedObject.GetComponent<SpriteRenderer>();
+            if (renderer == null) yield break;
+
+            var color = renderer.color;
+            color.a = appliedMoves % invisibilityTile.VisibilityFreq == 0 ? 1f : 0f;
+            renderer.color = color;
+
+            Vector3 startPosition = associatedObject.transform.position;
+            Vector3 endPosition = CalculateWorldPosition(nextPosition);
+
+            float moveSpeed = blocks[selectedBlockIndex].moveSpeed; // Скорость из основного блока
+
+            float distance = Vector3.Distance(startPosition, endPosition);
+
+            while (distance > 0.01f) // Проверка, чтобы остановить анимацию, когда объект почти на месте
+            {
+                float step = moveSpeed * Time.deltaTime;
+                associatedObject.transform.position = Vector3.MoveTowards(associatedObject.transform.position, endPosition, step);
+                distance = Vector3.Distance(associatedObject.transform.position, endPosition);
+
+                yield return null;
+            }
+
+            associatedObject.transform.position = CalculateWorldPosition(nextPosition);
+            isMoving = false;
+        }
+        yield return null;
+    }
 
     private IEnumerator WaitForAllBlocksToFinish()
     {
@@ -558,7 +643,10 @@ public class BlockController : MonoBehaviour
         if (newPosition.x >= 0 && newPosition.x < grid.GetLength(0) &&
             newPosition.y >= 0 && newPosition.y < grid.GetLength(1))
         {
-            if (levelEditor.uniqueTiles.FirstOrDefault(t => (Vector2)t.Position == newPosition && t.TileType == TileTypes.Invisibility) == null)
+            if (levelEditor.uniqueTiles.FirstOrDefault(t => (Vector2)t.Position == newPosition && t.TileType == TileTypes.Invisibility && t.IsActive) != null)
+            {
+                return false; // Тайл препятствует движению
+            }
             if (grid[(int)newPosition.x, (int)newPosition.y] == 0)
                 return true;
             if (grid[(int)newPosition.x, (int)newPosition.y] == 1 && blocks[selectedBlockIndex].CollideWithWalls == false)
