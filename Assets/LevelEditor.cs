@@ -151,7 +151,6 @@ public class LevelEditor : MonoBehaviour
     public Sprite InvisibilitySprite;
 
     [Space(5)]
-    public int CurrentStarsCount;
     public bool StarsForLevel;
     public int MovesForLevel;
     [DisabledIf("StarsForLevel")] public int TwoStarsMoves;
@@ -212,7 +211,6 @@ public class LevelEditor : MonoBehaviour
         DrawBackgroundOfLevel();
         DrawBlocks();
         DrawFinishTiles();
-        DrawBlocksMenu();
 
 #if UNITY_EDITOR
         SceneView sceneView = SceneView.lastActiveSceneView;
@@ -253,6 +251,10 @@ public class LevelEditor : MonoBehaviour
         var additionalTiles = GameObject.Find("Additional Tiles");
         if (additionalTiles != null)
             DestroyImmediate(additionalTiles.gameObject);
+
+        var blocksMenuObj = GameObject.Find("Blocks Menu Object");
+        if (blocksMenuObj != null)
+            DestroyImmediate(blocksMenuObj.gameObject);
 
         grid = null;
     }
@@ -939,8 +941,7 @@ public class LevelEditor : MonoBehaviour
         starSectionWidth = levelMenuSize.x * 0.6f;
         textSectionWidth = levelMenuSize.x - starSectionWidth; // Доступная ширина для текста
         textSectionHeight = levelMenuSize.y * 0.5f; // 40% высоты меню отводится под текст
-
-        TextLevelIndex.ChangeTextForLevel(LevelName);
+        TextLevelIndex.ChangeTextForLevel(LevelName.ToString());
         TextMovesCount.ChangeTextForMoves(blockController.appliedMoves.ToString());
 
         TextLevelIndex.textMeshPro.fontSize = TextLevelIndex.CalculateAdaptiveFontSize(textSectionWidth, textSectionHeight) * 0.7f;

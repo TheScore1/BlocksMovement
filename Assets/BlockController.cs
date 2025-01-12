@@ -124,7 +124,7 @@ public class BlockController : MonoBehaviour
             selectedObject.transform.position = createdBlocks[selectedBlockIndex].transform.position;
             selectedObject.transform.localScale = createdBlocks[selectedBlockIndex].transform.localScale;
         }
-
+        appliedMoves = 0;
         movesLeft = levelEditor.MovesForLevel;
     }
 
@@ -151,13 +151,13 @@ public class BlockController : MonoBehaviour
                 else if (Input.GetKeyDown(moveRightKey))
                     StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.right));
 
-                else if (Input.GetKeyDown(KeyCode.Alpha1) && blocks[0] != null)
+                else if (Input.GetKeyDown(KeyCode.Alpha1) && blocks.Length == 1)
                     selectedBlockIndex = 0;
-                else if (Input.GetKeyDown(KeyCode.Alpha2) && blocks[1] != null)
+                else if (Input.GetKeyDown(KeyCode.Alpha2) && blocks.Length == 2)
                     selectedBlockIndex = 1;
-                else if (Input.GetKeyDown(KeyCode.Alpha3) && blocks[2] != null)
+                else if (Input.GetKeyDown(KeyCode.Alpha3) && blocks.Length == 3)
                     selectedBlockIndex = 2;
-                else if (Input.GetKeyDown(KeyCode.Alpha4) && blocks[3] != null)
+                else if (Input.GetKeyDown(KeyCode.Alpha4) && blocks.Length == 4)
                     selectedBlockIndex = 3;
 
                 // сенсорное

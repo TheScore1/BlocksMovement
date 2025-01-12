@@ -45,7 +45,7 @@ public class SceneController : MonoBehaviour
         }
         else
         {
-            Debug.LogError("Incorrect Scene Index: " + sceneIndex);
+            Debug.Log("Levels finished");
         }
     }
 
