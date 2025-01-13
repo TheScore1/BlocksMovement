@@ -133,6 +133,10 @@ public class BlockController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.R))
             sceneController.ReloadSceneWithNoDelay();
 
+        Debug.Log(isMoving);
+        Debug.Log("level finished: " + levelEditor.levelFinished);
+        Debug.Log("Blocks left: " + blocksLeftToFinish);
+
         if (blocks.Length != 0)
         {
             if (selectedBlockIndex >= blocks.Length)
@@ -151,11 +155,11 @@ public class BlockController : MonoBehaviour
                 else if (Input.GetKeyDown(moveRightKey))
                     StartCoroutine(MoveBlockAndTiles(createdBlocks[selectedBlockIndex], Vector2ToVector2Int(createdBlocksPositions[selectedBlockIndex]), Vector2Int.right));
 
-                else if (Input.GetKeyDown(KeyCode.Alpha1) && blocks.Length == 1)
+                else if (Input.GetKeyDown(KeyCode.Alpha1) && blocks.Length >= 1)
                     selectedBlockIndex = 0;
-                else if (Input.GetKeyDown(KeyCode.Alpha2) && blocks.Length == 2)
+                else if (Input.GetKeyDown(KeyCode.Alpha2) && blocks.Length >= 2)
                     selectedBlockIndex = 1;
-                else if (Input.GetKeyDown(KeyCode.Alpha3) && blocks.Length == 3)
+                else if (Input.GetKeyDown(KeyCode.Alpha3) && blocks.Length >= 3)
                     selectedBlockIndex = 2;
                 else if (Input.GetKeyDown(KeyCode.Alpha4) && blocks.Length == 4)
                     selectedBlockIndex = 3;
@@ -169,7 +173,6 @@ public class BlockController : MonoBehaviour
                     else if (touch.phase == TouchPhase.Ended)
                     {
                         endTouchPosition = touch.position;
-
                         // Проверяем выбор блока
                         Vector2 touchWorldPosition = Camera.main.ScreenToWorldPoint(endTouchPosition);
                         for (int i = 0; i < levelEditor.createdBlocksMenuPrefabs.Count; i++)
@@ -188,7 +191,6 @@ public class BlockController : MonoBehaviour
                         // Если блок не был выбран, обрабатываем свайп
                         if (!wasClickedBlocksMenu)
                             ProcessSwipe(startTouchPosition, endTouchPosition);
-
                         wasClickedBlocksMenu = false;
                     }
                 }
@@ -243,7 +245,7 @@ public class BlockController : MonoBehaviour
             // подсчёт звёзд
             if (isAllBlocksFinished())
             {
-                LevelFinished.IsLevelFinished = true;
+                levelEditor.levelFinished.IsLevelFinished = true;
                 if (levelEditor.StarsForLevel)
                 {
                     if (appliedMoves <= levelEditor.ThreeStarsMoves)
@@ -274,7 +276,7 @@ public class BlockController : MonoBehaviour
             }
 
             // если уровень пройден выключаем управление блоками
-            if (LevelFinished.IsLevelFinished)
+            if (levelEditor.levelFinished.IsLevelFinished)
             {
                 for (int i = 0; i < blocks.Length; i++)
                     blocks[i].IsControllable = false;
@@ -339,6 +341,8 @@ public class BlockController : MonoBehaviour
 
     private IEnumerator MoveBlockAndTiles(GameObject block, Vector2Int blockPosition, Vector2Int direction)
     {
+        if (CanMove(blockPosition, direction) == false)
+            yield break;
         yield return MoveBlockSmoothly(block, blockPosition, direction);
         yield return MoveInvisibilityTiles(direction);
     }

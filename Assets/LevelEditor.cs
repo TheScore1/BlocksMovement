@@ -119,6 +119,7 @@ public class LevelEditor : MonoBehaviour
     public Vector2Int levelSize;
     [MinVector2Int(1,1)] public Vector2Int tileScale;
     [HideInInspector] public Vector2 tileSize;
+    [HideInInspector] public LevelFinished levelFinished;
 
     public string LevelName;
 
@@ -203,6 +204,7 @@ public class LevelEditor : MonoBehaviour
     {
         ClearLevel();
 
+        CalculateTileSize();
         InitializeGridAndWalls();
         InitializeInterfacelValues();
         InitializeWallsSpriteMap();
@@ -261,6 +263,9 @@ public class LevelEditor : MonoBehaviour
 
     void Start()
     {
+        levelFinished = new LevelFinished();
+        levelFinished.IsLevelFinished = false;
+
         if (blockController == null)
             blockController = FindFirstObjectByType<BlockController>();
 
@@ -277,6 +282,7 @@ public class LevelEditor : MonoBehaviour
         InitializeInterfacelValues();
         InitializeWallsSpriteMap();
         CalculateTileSize();
+
         SetupCamera();
 
         createdStars = new List<GameObject>();
@@ -506,6 +512,7 @@ public class LevelEditor : MonoBehaviour
         {
             spriteRenderer.sprite = BackgroundSprite;
             spriteRenderer.sortingOrder = -20;
+            spriteRenderer.drawMode = SpriteDrawMode.Simple;
 
             camera = Camera.main;
 
@@ -554,6 +561,7 @@ public class LevelEditor : MonoBehaviour
         }
         else
         {
+            Debug.Log("Slicing");
             // —оздание текстуры и спрайта
             Texture2D texture = new Texture2D(1, 1);
             texture.SetPixel(0, 0, new Color(176f / 255f, 178f / 255f, 184f / 255f));
@@ -561,6 +569,7 @@ public class LevelEditor : MonoBehaviour
             Sprite sprite = Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
             spriteRenderer.sprite = sprite;
             spriteRenderer.sortingOrder = -20;
+            spriteRenderer.drawMode = SpriteDrawMode.Simple;
 
             Camera cam = Camera.main;
 
@@ -941,6 +950,7 @@ public class LevelEditor : MonoBehaviour
         starSectionWidth = levelMenuSize.x * 0.6f;
         textSectionWidth = levelMenuSize.x - starSectionWidth; // ƒоступна€ ширина дл€ текста
         textSectionHeight = levelMenuSize.y * 0.5f; // 40% высоты меню отводитс€ под текст
+
         TextLevelIndex.ChangeTextForLevel(LevelName.ToString());
         TextMovesCount.ChangeTextForMoves(blockController.appliedMoves.ToString());
 

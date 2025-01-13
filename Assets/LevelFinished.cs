@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public static class LevelFinished
+public class LevelFinished
 {
-    public static bool IsLevelFinished = false;
+    public bool IsLevelFinished = false;
 }

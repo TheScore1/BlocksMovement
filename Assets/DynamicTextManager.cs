@@ -8,7 +8,7 @@ public class DynamicTextManager : MonoBehaviour
 
     public Font font;
 
-    void Start()
+    void Awake()
     {
         textObject = new GameObject("Text");
         textObject.transform.position = new Vector3(0, 0, 0);
@@ -39,12 +39,14 @@ public class DynamicTextManager : MonoBehaviour
 
     public void ChangeTextForLevel(string text)
     {
-        textMeshPro.text = "LEVEL <color=#D9D9D9>" + text + "</color>";
+        if (text != null)
+            textMeshPro.text = "LEVEL <color=#D9D9D9>" + text + "</color>";
     }
 
     public void ChangeTextForMoves(string text)
     {
-        textMeshPro.text = "MOVE: <color=#EEC20C>" + text + "</color>";
+        if (text != null)
+            textMeshPro.text = "MOVE: <color=#EEC20C>" + text + "</color>";
     }
 
     public void ChangeTextPosition(Vector3 pos)
